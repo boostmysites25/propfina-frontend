@@ -1,15 +1,51 @@
 import React, { useState } from "react";
+import { useForm, type SubmitHandler } from "react-hook-form";
+import { loginApi } from "../../utils/api";
+import toast from "react-hot-toast";
+import { handleApiError } from "../../utils/errorHandler";
+
+type LoginInputs = {
+  email: string;
+  password: string;
+  rememberMe: boolean;
+};
 
 const Login: React.FC = () => {
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
-  const [rememberMe, setRememberMe] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const {
+    register,
+    handleSubmit,
+    formState: { errors },
+  } = useForm<LoginInputs>({
+    defaultValues: {
+      email: "",
+      password: "",
+      rememberMe: false,
+    },
+  });
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    // Handle login logic here
-    console.log({ email, password, rememberMe });
+  const onSubmit: SubmitHandler<LoginInputs> = async (data) => {
+    setIsLoading(true);
+    try {
+      const res = await loginApi({
+        email: data.email,
+        password: data.password,
+      });
+
+      toast.success("Login successful!");
+      if (data.rememberMe) {
+        localStorage.setItem("token", res.data.accessToken);
+        localStorage.setItem("refreshToken", res.data.refreshToken);
+      } else {
+        sessionStorage.setItem("token", res.data.accessToken);
+        sessionStorage.setItem("refreshToken", res.data.refreshToken);
+      }
+      window.location.href = "/dashboard";
+    } catch (err) {
+      handleApiError(err, "Login failed. Please check your credentials.");
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -20,7 +56,7 @@ const Login: React.FC = () => {
           <h2 className="text-xl text-gray-600">Sign in to your account</h2>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-6">
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
           <div>
             <label
               htmlFor="email"
@@ -30,15 +66,28 @@ const Login: React.FC = () => {
             </label>
             <input
               id="email"
-              name="email"
               type="email"
               autoComplete="email"
-              required
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
               placeholder="Enter your email"
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
+              disabled={isLoading}
+              className={`w-full px-3 py-2 border ${
+                errors.email ? "border-red-500" : "border-gray-300"
+              } rounded-md focus:outline-none outline-none text-sm ${
+                isLoading ? "bg-gray-100 cursor-not-allowed" : ""
+              }`}
+              {...register("email", {
+                required: "Email is required",
+                pattern: {
+                  value: /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i,
+                  message: "Invalid email address",
+                },
+              })}
             />
+            {errors.email && (
+              <p className="mt-1 text-sm text-red-600">
+                {errors.email.message}
+              </p>
+            )}
           </div>
 
           <div>
@@ -51,19 +100,30 @@ const Login: React.FC = () => {
             <div className="relative">
               <input
                 id="password"
-                name="password"
                 type={showPassword ? "text" : "password"}
                 autoComplete="current-password"
-                required
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
                 placeholder="Enter your password"
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
+                disabled={isLoading}
+                className={`w-full px-3 py-2 border ${
+                  errors.password ? "border-red-500" : "border-gray-300"
+                } rounded-md focus:outline-none outline-none text-sm ${
+                  isLoading ? "bg-gray-100 cursor-not-allowed" : ""
+                }`}
+                {...register("password", {
+                  required: "Password is required",
+                  minLength: {
+                    value: 6,
+                    message: "Password must be at least 6 characters",
+                  },
+                })}
               />
               <button
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
-                className="absolute inset-y-0 right-0 pr-3 flex items-center cursor-pointer"
+                disabled={isLoading}
+                className={`absolute inset-y-0 right-0 pr-3 flex items-center ${
+                  isLoading ? "cursor-not-allowed opacity-60" : "cursor-pointer"
+                }`}
               >
                 <i
                   className={`fa ${
@@ -72,19 +132,25 @@ const Login: React.FC = () => {
                 ></i>
               </button>
             </div>
+            {errors.password && (
+              <p className="mt-1 text-sm text-red-600">
+                {errors.password.message}
+              </p>
+            )}
           </div>
 
           <div className="flex items-center">
             <input
-              id="remember-me"
-              name="remember-me"
+              id="rememberMe"
               type="checkbox"
-              checked={rememberMe}
-              onChange={() => setRememberMe(!rememberMe)}
-              className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded cursor-pointer"
+              disabled={isLoading}
+              className={`h-4 w-4 text-indigo-600 outline-none border-gray-300 rounded ${
+                isLoading ? "cursor-not-allowed opacity-60" : "cursor-pointer"
+              }`}
+              {...register("rememberMe")}
             />
             <label
-              htmlFor="remember-me"
+              htmlFor="rememberMe"
               className="ml-2 block text-sm text-gray-700 cursor-pointer"
             >
               Remember me
@@ -93,9 +159,24 @@ const Login: React.FC = () => {
 
           <button
             type="submit"
-            className="w-full flex justify-center items-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-gray-900 hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 !rounded-button whitespace-nowrap cursor-pointer"
+            disabled={isLoading}
+            className={`w-full flex justify-center items-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-gray-900 hover:bg-gray-800 focus:outline-none focus:ring-offset-2 focus:ring-gray-500 !rounded-button whitespace-nowrap ${
+              isLoading ? "opacity-70 cursor-not-allowed" : "cursor-pointer"
+            }`}
           >
-            <i className="fa fa-sign-in-alt mr-2"></i> Sign in
+            {isLoading ? (
+              <>
+                <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                Processing...
+              </>
+            ) : (
+              <>
+                <i className="fa fa-sign-in-alt mr-2"></i> Sign in
+              </>
+            )}
           </button>
         </form>
       </div>

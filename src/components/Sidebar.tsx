@@ -1,5 +1,6 @@
 import React from "react";
 import { Link, useLocation } from "react-router-dom";
+import { logout } from "../utils/auth";
 
 interface SidebarProps {
   isOpen: boolean;
@@ -90,10 +91,13 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggleSidebar }) => {
                 <span>{item.label}</span>
               </Link>
             ))}
-          <button className="mt-2 w-full p-3 flex items-center space-x-3 rounded-md cursor-pointer text-gray-600 hover:bg-gray-100">
-            <i className="fas fa-sign-out-alt w-5 text-center"></i>
-            <span>Logout</span>
-          </button>
+            <button
+              onClick={logout}
+              className="mt-2 w-full p-3 flex items-center space-x-3 rounded-md cursor-pointer text-gray-600 hover:bg-gray-100"
+            >
+              <i className="fas fa-sign-out-alt w-5 text-center"></i>
+              <span>Logout</span>
+            </button>
           </div>
         </nav>
       </aside>

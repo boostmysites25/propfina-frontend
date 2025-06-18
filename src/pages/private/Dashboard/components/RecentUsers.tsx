@@ -1,57 +1,18 @@
-import { useState } from "react";
+import React from "react";
 
-const RecentUsers = () => {
-  const [users] = useState([
-    {
-      id: 1,
-      name: "yash yadav",
-      email: "-",
-      phone: "-",
-      loginType: "Email",
-      avatar:
-        "https://readdy.ai/api/search-image?query=professional%20portrait%20photo%20of%20a%20young%20man%20with%20short%20dark%20hair%20and%20friendly%20smile%2C%20high%20quality%2C%20professional%20lighting%2C%20neutral%20background%2C%20realistic&width=80&height=80&seq=1&orientation=squarish",
-    },
-    {
-      id: 2,
-      name: "Nuage Laboratoire",
-      email: "5aihmcv2i5y6qszhxsebi2vhe4-00@cloudtestlabaccounts.com",
-      phone: "NA",
-      loginType: "Google",
-      avatar: null,
-    },
-    {
-      id: 3,
-      name: "TODAY 10 NEWS",
-      email: "adityabhatele7@gmail.com",
-      phone: "-",
-      loginType: "Google",
-      avatar: null,
-    },
-    {
-      id: 4,
-      name: "admin",
-      email: "admin@propinfina.com",
-      phone: "-",
-      loginType: "-",
-      avatar: null,
-    },
-    {
-      id: 5,
-      name: "akmalumr",
-      email: "akmalumr56@gmail.com",
-      phone: "NA",
-      loginType: "Email",
-      avatar: null,
-    },
-    {
-      id: 6,
-      name: "akram",
-      email: "akram@gmail.com",
-      phone: "NA",
-      loginType: "Email",
-      avatar: null,
-    },
-  ]);
+interface User {
+  username: string;
+  email: string;
+  phone: string;
+  loginType: string;
+  avatar?: string;
+}
+
+interface RecentUsersProps {
+  users: User[];
+}
+
+const RecentUsers: React.FC<RecentUsersProps> = ({ users }) => {
 
   // Function to get initials from name
   const getInitials = (name: string) => {
@@ -61,6 +22,12 @@ const RecentUsers = () => {
       .join("")
       .toUpperCase();
   };
+  
+  // Function to format phone number or email
+  const formatValue = (value: string) => {
+    return value === "NA" || value === "" ? "-" : value;
+  };
+  
   return (
     <div className="flex items-start justify-center py-12">
       <div className="w-full max-w-7xl bg-white rounded-lg shadow-md overflow-hidden">
@@ -102,8 +69,8 @@ const RecentUsers = () => {
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {users.map((user) => (
-                <tr key={user.id} className="hover:bg-gray-50 cursor-pointer">
+              {users.map((user, index) => (
+                <tr key={index} className="hover:bg-gray-50">
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="flex items-center">
                       <div className="flex-shrink-0 h-10 w-10">
@@ -111,17 +78,17 @@ const RecentUsers = () => {
                           <img
                             className="h-10 w-10 rounded-full object-cover"
                             src={user.avatar}
-                            alt={user.name}
+                            alt={user.username}
                           />
                         ) : (
                           <div className="h-10 w-10 rounded-full bg-gray-200 flex items-center justify-center text-gray-500">
-                            {getInitials(user.name)}
+                            {getInitials(user.username)}
                           </div>
                         )}
                       </div>
                       <div className="ml-4">
                         <div className="text-sm font-medium text-gray-900">
-                          {user.name}
+                          {user.username}
                         </div>
                       </div>
                     </div>
@@ -130,12 +97,12 @@ const RecentUsers = () => {
                     <div className="flex items-center">
                       <i className="fas fa-envelope text-gray-400 mr-2"></i>
                       <div className="text-sm text-gray-900 truncate max-w-xs">
-                        {user.email}
+                        {formatValue(user.email)}
                       </div>
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {user.phone}
+                    {formatValue(user.phone)}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     {user.loginType === "Email" && (
@@ -148,7 +115,7 @@ const RecentUsers = () => {
                         Google
                       </span>
                     )}
-                    {user.loginType === "-" && (
+                    {(user.loginType === "-" || !user.loginType) && (
                       <span className="px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-gray-100 text-gray-800 !rounded-button whitespace-nowrap">
                         -
                       </span>
