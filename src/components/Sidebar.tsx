@@ -55,7 +55,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggleSidebar }) => {
 
       {/* Sidebar */}
       <aside
-        className={`fixed top-0 left-0 max-h-screen h-full bg-white shadow-sm z-[100] transition-transform duration-300 ease-in-out transform w-72 ${
+        className={`fixed top-0 left-0 h-screen h-full bg-white shadow-sm z-[100] transition-transform duration-300 ease-in-out transform w-72 ${
           isOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"
         } md:static md:z-10 md:shadow-none`}
       >

@@ -1,4 +1,8 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { getAllPropertiesApi } from "../../../utils/api";
+import { toast } from "react-hot-toast";
+import type { Property, PropertyFilters } from "../../../utils/types";
 
 const AllProperties: React.FC = () => {
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
@@ -9,20 +13,29 @@ const AllProperties: React.FC = () => {
   const [locationFilter, setLocationFilter] = useState("All");
   const [sortFilter, setSortFilter] = useState("Date: Newest First");
   
+  // Available cities from API response
+  const [availableCities, setAvailableCities] = useState<string[]>([]);
+
   // Pagination states
   const [currentPage, setCurrentPage] = useState(1);
   const [propertiesPerPage, setPropertiesPerPage] = useState(8);
-  
+
   // Update properties per page based on view mode
   useEffect(() => {
     setPropertiesPerPage(viewMode === "grid" ? 8 : 5);
     setCurrentPage(1); // Reset to first page when changing view mode
   }, [viewMode]);
-  
+
   // Reset to first page when filters change
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchQuery, propertyTypeFilter, buildingTypeFilter, locationFilter, sortFilter]);
+  }, [
+    searchQuery,
+    propertyTypeFilter,
+    buildingTypeFilter,
+    locationFilter,
+    sortFilter,
+  ]);
 
   // Dropdown states
   const [propertyTypeDropdownOpen, setPropertyTypeDropdownOpen] =
@@ -39,14 +52,64 @@ const AllProperties: React.FC = () => {
     "Rent Properties",
     "PG Properties",
   ];
-  const buildingTypeOptions = ["All", "Residential", "Commercial"];
-  const locationOptions = ["All", "Mumbai", "Chennai", "Bangalore"];
-  const sortOptions = [
-    "Date: Newest First",
-    "Date: Oldest First",
-    "Price: Low to High",
-    "Price: High to Low",
+  const buildingTypeOptions = [
+    { label: "All", value: "" },
+    { label: "Residential", value: "residential" },
+    { label: "Commercial", value: "commercial" },
   ];
+  const sortOptions = [
+    { label: "Date: Newest First", value: "newest" },
+    { label: "Date: Oldest First", value: "oldest" },
+    { label: "Price: Low to High", value: "priceHigh" },
+    { label: "Price: High to Low", value: "priceLow" },
+  ];
+
+  // Prepare API filters
+  const apiFilters = useMemo(() => {
+    const filters: PropertyFilters = {};
+    
+    // Add sort filter
+    if (sortFilter === "Date: Newest First") filters.sort = "newest";
+    else if (sortFilter === "Date: Oldest First") filters.sort = "oldest";
+    else if (sortFilter === "Price: Low to High") filters.sort = "priceHigh";
+    else if (sortFilter === "Price: High to Low") filters.sort = "priceLow";
+    
+    // Add city filter - convert to lowercase for API
+    if (locationFilter !== "All") filters.city = locationFilter.toLowerCase();
+    
+    // Add building type filter - convert to lowercase for API
+    if (buildingTypeFilter !== "All") filters.buildingType = buildingTypeFilter.toLowerCase();
+    
+    // Add intent filter - convert to lowercase for API
+    if (propertyTypeFilter === "Buy Properties") filters.intent = "buy";
+    else if (propertyTypeFilter === "Rent Properties") filters.intent = "rent";
+    else if (propertyTypeFilter === "PG Properties") filters.intent = "pg";
+    
+    return filters;
+  }, [sortFilter, locationFilter, buildingTypeFilter, propertyTypeFilter]);
+
+  // Fetch properties from API
+  const { data, isLoading, isError, error } = useQuery({
+    queryKey: ['properties', apiFilters],
+    queryFn: () => getAllPropertiesApi(apiFilters),
+    onSuccess: (response) => {
+      // Extract unique cities from the response
+      if (response.data && Array.isArray(response.data)) {
+        const cities = [...new Set(response.data.map((property: Property) => 
+          property.cityOriginal || property.city || ''
+        ))].filter(city => city !== '');
+        
+        // Sort cities alphabetically
+        cities.sort();
+        
+        setAvailableCities(["All", ...cities]);
+      }
+    },
+    onError: (err) => {
+      console.error("Error fetching properties:", err);
+      toast.error("Failed to load properties. Please try again.");
+    }
+  });
 
   // Close dropdowns when clicking outside
   useEffect(() => {
@@ -72,216 +135,68 @@ const AllProperties: React.FC = () => {
     setter((prev) => !prev);
   };
 
-  const allProperties = [
-    {
-      id: 1,
-      name: "Aaren Complex",
-      price: "₹5,000",
-      location: "Mumbai",
-      date: "2023-05-15",
-      type: "Sell",
-      buildingType: "Residential",
-      image:
-        "https://readdy.ai/api/search-image?query=Luxurious%20modern%20living%20room%20with%20marble%20floors%2C%20large%20windows%20with%20city%20views%2C%20elegant%20furniture%2C%20warm%20lighting%2C%20wooden%20accents%2C%20and%20minimalist%20decor.%20The%20space%20features%20neutral%20colors%2C%20high%20ceilings%20with%20recessed%20lighting%2C%20and%20a%20sophisticated%20atmosphere.&width=600&height=400&seq=1&orientation=landscape",
-    },
-    {
-      id: 2,
-      name: "Gandhi nagar",
-      price: "₹5,00,00,000",
-      location: "Chennai",
-      date: "2023-06-20",
-      type: "Sell",
-      buildingType: "Residential",
-      image:
-        "https://readdy.ai/api/search-image?query=Modern%20apartment%20building%20exterior%20at%20night%20with%20warm%20lighting%2C%20contemporary%20architecture%2C%20glass%20facades%2C%20and%20elegant%20entrance.%20The%20building%20features%20clean%20lines%2C%20minimalist%20design%20elements%2C%20and%20a%20sophisticated%20urban%20setting.&width=600&height=400&seq=2&orientation=landscape",
-    },
-    {
-      id: 3,
-      name: "Vidhaya tower",
-      price: "₹5,00,00,000",
-      location: "Bangalore",
-      date: "2023-07-10",
-      type: "Rent",
-      buildingType: "Commercial",
-      image:
-        "https://readdy.ai/api/search-image?query=Luxury%20apartment%20complex%20with%20infinity%20pool%2C%20modern%20architecture%2C%20landscaped%20gardens%2C%20and%20outdoor%20loungers.%20The%20building%20features%20brick%20and%20glass%20facades%2C%20balconies%2C%20and%20a%20serene%20water%20feature%20with%20ambient%20lighting%20creating%20a%20tranquil%20atmosphere.&width=600&height=400&seq=3&orientation=landscape",
-    },
-    {
-      id: 4,
-      name: "LK Nest",
-      price: "₹56,00,000",
-      location: "Mumbai",
-      date: "2023-08-05",
-      type: "PG",
-      buildingType: "Residential",
-      image:
-        "https://readdy.ai/api/search-image?query=Modern%20luxury%20villa%20with%20clean%20white%20architecture%2C%20large%20glass%20windows%2C%20infinity%20pool%20with%20blue%20water%2C%20multiple%20levels%2C%20outdoor%20terrace%2C%20and%20minimalist%20design%20against%20bright%20blue%20sky%20background.%20The%20property%20features%20contemporary%20styling%20and%20elegant%20outdoor%20living%20spaces.&width=600&height=400&seq=4&orientation=landscape",
-    },
-    {
-      id: 5,
-      name: "Sunrise Apartments",
-      price: "₹75,00,000",
-      location: "Chennai",
-      date: "2023-09-12",
-      type: "Sell",
-      buildingType: "Residential",
-      image:
-        "https://readdy.ai/api/search-image?query=Modern%20apartment%20building%20with%20balconies%20and%20large%20windows%2C%20surrounded%20by%20landscaped%20gardens%20and%20walking%20paths.&width=600&height=400&seq=5&orientation=landscape",
-    },
-    {
-      id: 6,
-      name: "Tech Park Plaza",
-      price: "₹1,20,00,000",
-      location: "Bangalore",
-      date: "2023-07-25",
-      type: "Rent",
-      buildingType: "Commercial",
-      image:
-        "https://readdy.ai/api/search-image?query=Modern%20glass%20office%20building%20with%20corporate%20architecture%2C%20reflective%20facades%20and%20professional%20entrance.&width=600&height=400&seq=6&orientation=landscape",
-    },
-    {
-      id: 7,
-      name: "Seaside Villa",
-      price: "₹2,50,00,000",
-      location: "Mumbai",
-      date: "2023-08-30",
-      type: "Sell",
-      buildingType: "Residential",
-      image:
-        "https://readdy.ai/api/search-image?query=Luxury%20beachfront%20villa%20with%20infinity%20pool%20overlooking%20the%20ocean%2C%20modern%20architecture%20with%20large%20windows.&width=600&height=400&seq=7&orientation=landscape",
-    },
-    {
-      id: 8,
-      name: "Student Haven",
-      price: "₹12,000",
-      location: "Chennai",
-      date: "2023-09-05",
-      type: "PG",
-      buildingType: "Residential",
-      image:
-        "https://readdy.ai/api/search-image?query=Modern%20student%20accommodation%20with%20shared%20spaces%2C%20study%20areas%20and%20comfortable%20living%20quarters.&width=600&height=400&seq=8&orientation=landscape",
-    },
-    {
-      id: 9,
-      name: "Green Valley Homes",
-      price: "₹95,00,000",
-      location: "Bangalore",
-      date: "2023-06-15",
-      type: "Sell",
-      buildingType: "Residential",
-      image:
-        "https://readdy.ai/api/search-image?query=Eco-friendly%20residential%20complex%20with%20green%20spaces%2C%20solar%20panels%20and%20sustainable%20architecture.&width=600&height=400&seq=9&orientation=landscape",
-    },
-    {
-      id: 10,
-      name: "City Center Mall",
-      price: "₹2,00,00,000",
-      location: "Mumbai",
-      date: "2023-07-20",
-      type: "Rent",
-      buildingType: "Commercial",
-      image:
-        "https://readdy.ai/api/search-image?query=Modern%20shopping%20mall%20with%20glass%20atrium%2C%20multiple%20floors%20and%20contemporary%20retail%20spaces.&width=600&height=400&seq=10&orientation=landscape",
-    },
-    {
-      id: 11,
-      name: "Scholars Residence",
-      price: "₹15,000",
-      location: "Chennai",
-      date: "2023-08-10",
-      type: "PG",
-      buildingType: "Residential",
-      image:
-        "https://readdy.ai/api/search-image?query=Modern%20PG%20accommodation%20with%20furnished%20rooms%2C%20common%20areas%20and%20study%20facilities.&width=600&height=400&seq=11&orientation=landscape",
-    },
-    {
-      id: 12,
-      name: "Mountain View Villas",
-      price: "₹1,80,00,000",
-      location: "Bangalore",
-      date: "2023-09-25",
-      type: "Sell",
-      buildingType: "Residential",
-      image:
-        "https://readdy.ai/api/search-image?query=Luxury%20villa%20complex%20with%20mountain%20views%2C%20private%20gardens%20and%20contemporary%20architecture.&width=600&height=400&seq=12&orientation=landscape",
-    },
-  ];
+  // Process properties from API response
+  const properties = useMemo(() => {
+    if (!data?.data || !Array.isArray(data.data)) return [];
+    
+    return data.data.map((property: Property) => {
+      // Convert timestamp to date string
+      const timestamp = property.createdAt?._seconds 
+        ? new Date(property.createdAt._seconds * 1000).toISOString() 
+        : new Date().toISOString();
+      
+      // Use the original capitalized values if available
+      const propertyType = property.intentOriginal || property.intent || '';
+      const buildingType = property.buildingTypeOriginal || property.buildingType || '';
+      const location = property.cityOriginal || property.city || '';
+      
+      return {
+        id: property.id,
+        name: property.projectName,
+        price: `₹${property.price.toLocaleString('en-IN')}`,
+        location: location,
+        date: timestamp,
+        type: propertyType,
+        buildingType: buildingType,
+        image: property.images && property.images.length > 0 
+          ? property.images[0] 
+          : "https://readdy.ai/api/search-image?query=Modern%20apartment%20building%20with%20balconies%20and%20large%20windows%2C%20surrounded%20by%20landscaped%20gardens%20and%20walking%20paths.&width=600&height=400&seq=5&orientation=landscape"
+      };
+    });
+  }, [data]);
 
-  // Apply filters to properties
-  const filteredProperties = allProperties.filter((property) => {
-    // Filter by search query
-    if (
-      searchQuery &&
-      !property.name.toLowerCase().includes(searchQuery.toLowerCase()) &&
-      !property.location.toLowerCase().includes(searchQuery.toLowerCase())
-    ) {
-      return false;
-    }
+  // Apply search filter locally (since API doesn't support search)
+  const filteredProperties = useMemo(() => {
+    if (!searchQuery) return properties;
+    
+    const query = searchQuery.toLowerCase().trim();
+    return properties.filter(property => 
+      (property.name && property.name.toLowerCase().includes(query)) ||
+      (property.location && property.location.toLowerCase().includes(query))
+    );
+  }, [properties, searchQuery]);
 
-    // Filter by property type
-    if (propertyTypeFilter !== "All Properties") {
-      if (propertyTypeFilter === "Buy Properties" && property.type !== "Sell")
-        return false;
-      if (propertyTypeFilter === "Rent Properties" && property.type !== "Rent")
-        return false;
-      if (propertyTypeFilter === "PG Properties" && property.type !== "PG")
-        return false;
-    }
-
-    // Filter by building type
-    if (
-      buildingTypeFilter !== "All" &&
-      property.buildingType !== buildingTypeFilter
-    ) {
-      return false;
-    }
-
-    // Filter by location
-    if (locationFilter !== "All" && property.location !== locationFilter) {
-      return false;
-    }
-
-    return true;
-  });
-
-  // Apply sorting
-  const sortedProperties = [...filteredProperties].sort((a, b) => {
-    if (sortFilter === "Date: Newest First") {
-      return new Date(b.date).getTime() - new Date(a.date).getTime();
-    } else if (sortFilter === "Date: Oldest First") {
-      return new Date(a.date).getTime() - new Date(b.date).getTime();
-    } else if (sortFilter === "Price: Low to High") {
-      return (
-        parseFloat(a.price.replace(/[₹,]/g, "")) -
-        parseFloat(b.price.replace(/[₹,]/g, ""))
-      );
-    } else if (sortFilter === "Price: High to Low") {
-      return (
-        parseFloat(b.price.replace(/[₹,]/g, "")) -
-        parseFloat(a.price.replace(/[₹,]/g, ""))
-      );
-    }
-    return 0;
-  });
-  
   // Get current properties for pagination
   const indexOfLastProperty = currentPage * propertiesPerPage;
   const indexOfFirstProperty = indexOfLastProperty - propertiesPerPage;
-  const currentProperties = sortedProperties.slice(indexOfFirstProperty, indexOfLastProperty);
-  
+  const currentProperties = filteredProperties.slice(
+    indexOfFirstProperty,
+    indexOfLastProperty
+  );
+
   // Calculate total pages
-  const totalPages = Math.ceil(sortedProperties.length / propertiesPerPage);
-  
+  const totalPages = Math.ceil(filteredProperties.length / propertiesPerPage);
+
   // Change page
   const paginate = (pageNumber: number) => setCurrentPage(pageNumber);
-  
+
   // Go to next page
   const nextPage = () => {
     if (currentPage < totalPages) {
       setCurrentPage(currentPage + 1);
     }
   };
-  
+
   // Go to previous page
   const prevPage = () => {
     if (currentPage > 1) {
@@ -378,15 +293,15 @@ const AllProperties: React.FC = () => {
             <div className="absolute z-10 mt-1 w-full bg-white border border-gray-300 rounded-lg shadow-lg">
               {buildingTypeOptions.map((option) => (
                 <div
-                  key={option}
+                  key={option.label}
                   className="p-2 hover:bg-gray-100 cursor-pointer text-sm"
                   onClick={(e) => {
                     e.stopPropagation();
-                    setBuildingTypeFilter(option);
+                    setBuildingTypeFilter(option.label);
                     setBuildingTypeDropdownOpen(false);
                   }}
                 >
-                  {option}
+                  {option.label}
                 </div>
               ))}
             </div>
@@ -398,25 +313,30 @@ const AllProperties: React.FC = () => {
           <button
             className="w-full flex items-center justify-between p-2 border border-gray-300 rounded-lg bg-white text-sm cursor-pointer whitespace-nowrap"
             onClick={(e) => toggleDropdown(setLocationDropdownOpen, e)}
+            disabled={isLoading}
           >
             <span>{locationFilter}</span>
             <i className="fas fa-chevron-down ml-2 text-gray-500"></i>
           </button>
           {locationDropdownOpen && (
             <div className="absolute z-10 mt-1 w-full bg-white border border-gray-300 rounded-lg shadow-lg">
-              {locationOptions.map((option) => (
-                <div
-                  key={option}
-                  className="p-2 hover:bg-gray-100 cursor-pointer text-sm"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setLocationFilter(option);
-                    setLocationDropdownOpen(false);
-                  }}
-                >
-                  {option}
-                </div>
-              ))}
+              {availableCities.length > 0 ? (
+                availableCities.map((option) => (
+                  <div
+                    key={option}
+                    className="p-2 hover:bg-gray-100 cursor-pointer text-sm"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setLocationFilter(option);
+                      setLocationDropdownOpen(false);
+                    }}
+                  >
+                    {option}
+                  </div>
+                ))
+              ) : (
+                <div className="p-2 text-sm text-gray-500">Loading cities...</div>
+              )}
             </div>
           )}
         </div>
@@ -434,15 +354,15 @@ const AllProperties: React.FC = () => {
             <div className="absolute z-10 mt-1 w-full bg-white border border-gray-300 rounded-lg shadow-lg">
               {sortOptions.map((option) => (
                 <div
-                  key={option}
+                  key={option.label}
                   className="p-2 hover:bg-gray-100 cursor-pointer text-sm"
                   onClick={(e) => {
                     e.stopPropagation();
-                    setSortFilter(option);
+                    setSortFilter(option.label);
                     setSortDropdownOpen(false);
                   }}
                 >
-                  {option}
+                  {option.label}
                 </div>
               ))}
             </div>
@@ -450,22 +370,45 @@ const AllProperties: React.FC = () => {
         </div>
       </div>
 
+      {/* Loading State */}
+      {isLoading && (
+        <div className="flex justify-center items-center py-20">
+          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-gray-900"></div>
+        </div>
+      )}
+
+      {/* Error State */}
+      {isError && (
+        <div className="flex flex-col items-center justify-center py-20 text-red-500">
+          <i className="fas fa-exclamation-circle text-5xl mb-4"></i>
+          <p className="text-xl">Failed to load properties</p>
+          <p className="mt-2">Please try again later or contact support</p>
+          <button 
+            className="mt-4 px-4 py-2 bg-gray-800 text-white rounded-md hover:bg-gray-700"
+            onClick={() => window.location.reload()}
+          >
+            Retry
+          </button>
+        </div>
+      )}
+
       {/* Property Grid/List */}
-      <div
-        className={`${
-          viewMode === "grid"
-            ? "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 auto-rows-fr"
-            : "flex flex-col"
-        } gap-6 p-4 md:p-6`}
-      >
-        {sortedProperties.length === 0 ? (
-          <div className="col-span-full flex flex-col items-center justify-center py-12 text-gray-500">
-            <i className="fas fa-search text-5xl mb-4"></i>
-            <p className="text-xl">No properties found matching your filters</p>
-            <p className="mt-2">Try adjusting your search criteria</p>
-          </div>
-        ) : (
-          currentProperties.map((property) => (
+      {!isLoading && !isError && (
+        <div
+          className={`${
+            viewMode === "grid"
+              ? "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 auto-rows-fr"
+              : "flex flex-col"
+          } gap-6 p-4 md:p-6`}
+        >
+          {filteredProperties.length === 0 ? (
+            <div className="col-span-full flex flex-col items-center justify-center py-12 text-gray-500">
+              <i className="fas fa-search text-5xl mb-4"></i>
+              <p className="text-xl">No properties found matching your filters</p>
+              <p className="mt-2">Try adjusting your search criteria</p>
+            </div>
+          ) : (
+            currentProperties.map((property) => (
             <div
               key={property.id}
               className={`bg-white rounded-lg shadow-md overflow-hidden transition-transform duration-300 hover:shadow-lg hover:-translate-y-1 ${
@@ -474,7 +417,9 @@ const AllProperties: React.FC = () => {
             >
               <div
                 className={`relative overflow-hidden ${
-                  viewMode === "grid" ? "w-full" : "min-w-[200px] max-w-[200px] h-[150px] rounded-lg"
+                  viewMode === "grid"
+                    ? "w-full"
+                    : "min-w-[200px] max-w-[200px] h-[150px] rounded-lg"
                 }`}
                 style={viewMode === "grid" ? { aspectRatio: "16/9" } : {}}
               >
@@ -482,19 +427,25 @@ const AllProperties: React.FC = () => {
                   src={property.image}
                   alt={property.name}
                   className="w-full h-full object-cover object-center transition-transform duration-500 hover:scale-105"
+                  onError={(e) => {
+                    // Fallback image if the property image fails to load
+                    (e.target as HTMLImageElement).src = "https://readdy.ai/api/search-image?query=Modern%20apartment%20building%20with%20balconies%20and%20large%20windows%2C%20surrounded%20by%20landscaped%20gardens%20and%20walking%20paths.&width=600&height=400&seq=5&orientation=landscape";
+                  }}
                 />
               </div>
 
-              <div className={`p-4 ${viewMode === "list" ? "flex-1 ml-2" : ""}`}>
+              <div
+                className={`p-4 ${viewMode === "list" ? "flex-1 ml-2" : ""}`}
+              >
                 <div className="flex justify-between items-start mb-3">
                   <h3 className="text-lg font-medium text-gray-800">
                     {property.name}
                   </h3>
                   <span
                     className={`px-2 py-1 text-xs font-medium rounded-full ${
-                      property.type === "Sell"
+                      property.type.toLowerCase().includes("buy") || property.type.toLowerCase().includes("sell")
                         ? "bg-blue-100 text-blue-800"
-                        : property.type === "Rent"
+                        : property.type.toLowerCase().includes("rent")
                         ? "bg-green-100 text-green-800"
                         : "bg-purple-100 text-purple-800"
                     }`}
@@ -536,9 +487,10 @@ const AllProperties: React.FC = () => {
           ))
         )}
       </div>
-      
+      )}
+
       {/* Pagination */}
-      {sortedProperties.length > 0 && (
+      {!isLoading && !isError && filteredProperties.length > 0 && (
         <div className="flex justify-center items-center py-6 border-t border-gray-200 mt-4">
           <nav className="flex items-center">
             <button
@@ -552,42 +504,44 @@ const AllProperties: React.FC = () => {
             >
               <i className="fas fa-chevron-left"></i>
             </button>
-            
+
             <div className="flex">
-              {Array.from({ length: totalPages }, (_, i) => i + 1).map((number) => {
-                // Show limited page numbers with ellipsis
-                if (
-                  number === 1 ||
-                  number === totalPages ||
-                  (number >= currentPage - 1 && number <= currentPage + 1)
-                ) {
-                  return (
-                    <button
-                      key={number}
-                      onClick={() => paginate(number)}
-                      className={`px-3 py-1 mx-1 rounded-md ${
-                        currentPage === number
-                          ? "bg-gray-900 text-white"
-                          : "bg-gray-200 text-gray-700 hover:bg-gray-300"
-                      }`}
-                    >
-                      {number}
-                    </button>
-                  );
-                } else if (
-                  (number === currentPage - 2 && currentPage > 3) ||
-                  (number === currentPage + 2 && currentPage < totalPages - 2)
-                ) {
-                  return (
-                    <span key={number} className="px-2 py-1 mx-1">
-                      ...
-                    </span>
-                  );
+              {Array.from({ length: totalPages }, (_, i) => i + 1).map(
+                (number) => {
+                  // Show limited page numbers with ellipsis
+                  if (
+                    number === 1 ||
+                    number === totalPages ||
+                    (number >= currentPage - 1 && number <= currentPage + 1)
+                  ) {
+                    return (
+                      <button
+                        key={number}
+                        onClick={() => paginate(number)}
+                        className={`px-3 py-1 mx-1 rounded-md ${
+                          currentPage === number
+                            ? "bg-gray-900 text-white"
+                            : "bg-gray-200 text-gray-700 hover:bg-gray-300"
+                        }`}
+                      >
+                        {number}
+                      </button>
+                    );
+                  } else if (
+                    (number === currentPage - 2 && currentPage > 3) ||
+                    (number === currentPage + 2 && currentPage < totalPages - 2)
+                  ) {
+                    return (
+                      <span key={number} className="px-2 py-1 mx-1">
+                        ...
+                      </span>
+                    );
+                  }
+                  return null;
                 }
-                return null;
-              })}
+              )}
             </div>
-            
+
             <button
               onClick={nextPage}
               disabled={currentPage === totalPages}
@@ -600,11 +554,11 @@ const AllProperties: React.FC = () => {
               <i className="fas fa-chevron-right"></i>
             </button>
           </nav>
-          
+
           <div className="ml-4 text-sm text-gray-600">
             Showing {indexOfFirstProperty + 1}-
-            {Math.min(indexOfLastProperty, sortedProperties.length)} of{" "}
-            {sortedProperties.length} properties
+            {Math.min(indexOfLastProperty, filteredProperties.length)} of{" "}
+            {filteredProperties.length} properties
           </div>
         </div>
       )}
