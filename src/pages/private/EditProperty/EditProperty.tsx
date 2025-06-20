@@ -28,7 +28,7 @@ const EditProperty: React.FC = () => {
   const {
     register,
     handleSubmit: hookFormSubmit,
-    formState: { errors, isSubmitting },
+    formState: { errors },
     setValue,
     watch,
     reset,
@@ -87,6 +87,9 @@ const EditProperty: React.FC = () => {
       console.error("Error updating property:", error);
     },
   });
+  
+  // Use mutation.isPending for form submission state
+  const isSubmitting = mutation.isPending;
 
   // Set form values when property data is loaded
   useEffect(() => {
@@ -883,6 +886,7 @@ const EditProperty: React.FC = () => {
                         type="button"
                         onClick={() => removeExistingImage(url)}
                         className="absolute top-2 right-2 bg-red-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                        disabled={mutation.isPending}
                       >
                         <i className="fas fa-times"></i>
                       </button>
@@ -905,13 +909,13 @@ const EditProperty: React.FC = () => {
                   multiple
                   accept="image/*"
                   className="hidden"
-                  disabled={isSubmitting}
+                  disabled={mutation.isPending}
                 />
                 <button
                   type="button"
                   onClick={() => fileInputRef.current?.click()}
                   className="px-4 py-2 bg-black text-white rounded-lg hover:bg-gray-800 transition-colors"
-                  disabled={isSubmitting}
+                  disabled={mutation.isPending}
                 >
                   <i className="fas fa-upload mr-2"></i>
                   Select Images
@@ -937,6 +941,7 @@ const EditProperty: React.FC = () => {
                           type="button"
                           onClick={() => removeSelectedFile(index)}
                           className="absolute top-2 right-2 bg-red-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                          disabled={mutation.isPending}
                         >
                           <i className="fas fa-times"></i>
                         </button>
@@ -954,16 +959,16 @@ const EditProperty: React.FC = () => {
               type="button"
               onClick={() => navigate("/properties")}
               className="px-6 py-3 mr-4 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 transition-colors"
-              disabled={isSubmitting}
+              disabled={mutation.isPending}
             >
               Cancel
             </button>
             <button
               type="submit"
               className="px-6 py-3 bg-black text-white rounded-lg hover:bg-gray-800 transition-colors flex items-center"
-              disabled={isSubmitting}
+              disabled={mutation.isPending}
             >
-              {isSubmitting ? (
+              {mutation.isPending ? (
                 <>
                   <svg
                     className="animate-spin -ml-1 mr-2 h-5 w-5 text-white"

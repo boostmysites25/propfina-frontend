@@ -68,3 +68,8 @@ export const deletePropertyApi = (propertyId: string) => {
 export const updatePropertyApi = (propertyId: string, data: PropertyFormData) => {
   return authApi.patch(`/properties/${propertyId}`, data);
 };
+
+// Update user password
+export const updatePasswordApi = (data: { currentPassword: string; newPassword: string; confirmPassword: string }) => {
+  return authApi.patch('/auth/update-password', data);
+};
