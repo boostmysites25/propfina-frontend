@@ -5,6 +5,7 @@ import { addPropertyApi } from "../../../utils/api";
 import { toast } from "react-hot-toast";
 import type { PropertyFormData } from "../../../utils/types";
 import { handleApiError } from "../../../utils/errorHandler";
+import { uploadImage } from "../../../utils/uploadImage";
 
 const AddProperty: React.FC = () => {
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
@@ -12,8 +13,9 @@ const AddProperty: React.FC = () => {
   const [bhkValue, setBhkValue] = useState<string>("");
   const [bathroomsValue, setBathroomsValue] = useState<string>("");
   const [balconiesValue, setBalconiesValue] = useState<string>("");
-  const [ownershipValue, setOwnershipValue] = useState<string>("");
-  const [leaseTypeValue, setLeaseTypeValue] = useState<string>("");
+  const [ownershipValue, setOwnershipValue] = useState<string>("Owner");
+  const [leaseTypeValue, setLeaseTypeValue] = useState<string>("Non-Leased");
+  const [formSubmitted, setFormSubmitted] = useState<boolean>(false);
 
   // React Hook Form setup
   const {
@@ -22,9 +24,10 @@ const AddProperty: React.FC = () => {
     formState: { errors, isSubmitting },
     setValue,
     watch,
+    reset,
   } = useForm<PropertyFormData>({
     defaultValues: {
-      intent: "Buy",
+      intent: "Sell",
       buildingType: "Residential",
       ownership: "Owner",
       leaseType: "Non-Leased",
@@ -36,11 +39,17 @@ const AddProperty: React.FC = () => {
   });
 
   // Watch form values
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const parkingAvailability = watch("parking");
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const possessionStatus = watch("possessionStatus");
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const furnishedStatus = watch("furnishedStatus");
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const propertyAge = watch("ageOfProperty");
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const description = watch("description");
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const additionalNotes = watch("additionalNotes");
 
   // API mutation
@@ -48,7 +57,39 @@ const AddProperty: React.FC = () => {
     mutationFn: (data: PropertyFormData) => addPropertyApi(data),
     onSuccess: () => {
       toast.success("Property added successfully!");
-      // Reset form or redirect
+      
+      // Reset form values
+      reset({
+        intent: "Sell",
+        buildingType: "Residential",
+        ownership: "Owner",
+        leaseType: "Non-Leased",
+        parking: "Yes",
+        possessionStatus: "Ready to Move",
+        furnishedStatus: "Furnished",
+        ageOfProperty: "0–1 year",
+      });
+      
+      // Reset dropdown values
+      setBhkValue("");
+      setBathroomsValue("");
+      setBalconiesValue("");
+      setOwnershipValue("");
+      setLeaseTypeValue("");
+      
+      // Clear selected files
+      setSelectedFiles([]);
+      
+      // Clear file input
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+      
+      // Reset form submitted state
+      setFormSubmitted(false);
+      
+      // Scroll to top
+      window.scrollTo({ top: 0, behavior: 'smooth' });
     },
     onError: (error) => {
       toast.error("Failed to add property. Please try again.");
@@ -61,30 +102,31 @@ const AddProperty: React.FC = () => {
       const filesArray = Array.from(e.target.files);
       setSelectedFiles((prevFiles) => [...prevFiles, ...filesArray]);
 
-      // Convert files to base64 strings for API
+      // Upload files to Firebase and get URLs
       try {
-        const base64Files = await Promise.all(
-          filesArray.map((file) => convertFileToBase64(file))
-        );
-
-        // Update form value with base64 strings
-        setValue("images", [...(watch("images") || []), ...base64Files]);
+        toast.loading("Uploading images...");
+        
+        const uploadPromises = filesArray.map(async (file) => {
+          const result = await uploadImage(file);
+          return result.url;
+        });
+        
+        const imageUrls = await Promise.all(uploadPromises);
+        
+        // Update form value with image URLs
+        setValue("images", [...(watch("images") || []), ...imageUrls]);
+        
+        toast.dismiss();
+        toast.success("Images uploaded successfully!");
       } catch (error) {
-        console.error("Error converting files to base64:", error);
-        toast.error("Error processing images. Please try again.");
+        console.error("Error uploading images to Firebase:", error);
+        toast.dismiss();
+        toast.error("Error uploading images. Please try again.");
       }
     }
   };
 
-  // Helper function to convert File to base64 string
-  const convertFileToBase64 = (file: File): Promise<string> => {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.readAsDataURL(file);
-      reader.onload = () => resolve(reader.result as string);
-      reader.onerror = (error) => reject(error);
-    });
-  };
+  // We're now using Firebase storage instead of base64 encoding
 
   const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
@@ -96,17 +138,26 @@ const AddProperty: React.FC = () => {
       const filesArray = Array.from(e.dataTransfer.files);
       setSelectedFiles((prevFiles) => [...prevFiles, ...filesArray]);
 
-      // Convert files to base64 strings for API
+      // Upload files to Firebase and get URLs
       try {
-        const base64Files = await Promise.all(
-          filesArray.map((file) => convertFileToBase64(file))
-        );
-
-        // Update form value with base64 strings
-        setValue("images", [...(watch("images") || []), ...base64Files]);
+        toast.loading("Uploading images...");
+        
+        const uploadPromises = filesArray.map(async (file) => {
+          const result = await uploadImage(file);
+          return result.url;
+        });
+        
+        const imageUrls = await Promise.all(uploadPromises);
+        
+        // Update form value with image URLs
+        setValue("images", [...(watch("images") || []), ...imageUrls]);
+        
+        toast.dismiss();
+        toast.success("Images uploaded successfully!");
       } catch (error) {
-        console.error("Error converting files to base64:", error);
-        toast.error("Error processing images. Please try again.");
+        console.error("Error uploading images to Firebase:", error);
+        toast.dismiss();
+        toast.error("Error uploading images. Please try again.");
       }
     }
   };
@@ -119,12 +170,14 @@ const AddProperty: React.FC = () => {
   const bathroomOptions = ["1", "2", "3", "4", "5+"];
   const balconyOptions = ["0", "1", "2", "3", "4+"];
   const ownershipOptions = [
+    "Owner",
+    "Broker",
     "Freehold",
     "Leasehold",
-    "Co-operative society",
+    "Co-operative Society",
     "Power of Attorney",
   ];
-  const leaseTypeOptions = ["Company Lease", "Bachelor Lease", "Family Lease"];
+  const leaseTypeOptions = ["Non-Leased", "Leased"];
 
   const toggleDropdown = (id: string) => {
     const dropdown = document.getElementById(id);
@@ -146,27 +199,16 @@ const AddProperty: React.FC = () => {
     toggleDropdown(dropdownId);
   };
 
-  const parkingOptions = [
-    "Available",
-    "Not Available",
-    "Covered Parking",
-    "Open Parking",
-  ];
-  const possessionOptions = [
-    "Ready to Move",
-    "Under Construction",
-    "Forthcoming",
-  ];
-  const furnishedOptions = ["Fully Furnished", "Semi-Furnished", "Unfurnished"];
-  const propertyAgeOptions = [
-    "Less than 1 year",
-    "1-5 years",
-    "5-10 years",
-    "10+ years",
-    "Under Construction",
-  ];
-
   const onSubmit: SubmitHandler<PropertyFormData> = async (data) => {
+    // Set form as submitted to show validation errors
+    setFormSubmitted(true);
+    
+    // Check if required fields are filled
+    if (!bhkValue || !bathroomsValue) {
+      toast.error("Please fill all required fields");
+      return;
+    }
+    
     try {
       // Set dropdown values that might not be in the form
       data.bhk = bhkValue;
@@ -268,7 +310,7 @@ const AddProperty: React.FC = () => {
                   placeholder="Enter price"
                   className={`w-full pl-8 pr-3 py-3 border ${
                     errors.price ? "border-red-300" : "border-gray-300"
-                  } rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-700`}
+                  } rounded-md outline-none text-gray-700`}
                   {...register("price", {
                     required: "Price is required",
                     min: { value: 1, message: "Price must be greater than 0" },
@@ -292,7 +334,7 @@ const AddProperty: React.FC = () => {
                 placeholder="Enter project name"
                 className={`w-full px-4 py-3 border ${
                   errors.projectName ? "border-red-300" : "border-gray-300"
-                } rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-700`}
+                } rounded-md outline-none text-gray-700`}
                 {...register("projectName", {
                   required: "Project name is required",
                 })}
@@ -311,11 +353,11 @@ const AddProperty: React.FC = () => {
               </label>
               <div className="relative">
                 <select
-                  className="w-full px-4 py-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-700 appearance-none cursor-pointer"
+                  className="w-full px-4 py-3 border border-gray-300 rounded-md outline-none text-gray-700 appearance-none cursor-pointer"
                   {...register("intent")}
                   disabled={isSubmitting}
                 >
-                  <option value="Buy">Buy</option>
+                  <option value="Sell">Sell</option>
                   <option value="Rent">Rent</option>
                   <option value="PG">PG</option>
                 </select>
@@ -331,7 +373,7 @@ const AddProperty: React.FC = () => {
               </label>
               <div className="relative">
                 <select
-                  className="w-full px-4 py-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-700 appearance-none cursor-pointer"
+                  className="w-full px-4 py-3 border border-gray-300 rounded-md outline-none text-gray-700 appearance-none cursor-pointer"
                   {...register("buildingType")}
                   disabled={isSubmitting}
                 >
@@ -352,17 +394,18 @@ const AddProperty: React.FC = () => {
                 <select
                   className={`w-full px-4 py-3 border ${
                     errors.propertyType ? "border-red-300" : "border-gray-300"
-                  } rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-700 appearance-none cursor-pointer`}
+                  } rounded-md outline-none text-gray-700 appearance-none cursor-pointer`}
                   {...register("propertyType", {
                     required: "Property type is required",
                   })}
                   disabled={isSubmitting}
                 >
                   <option value="">Select type</option>
+                  <option value="Independent House/Villa">Independent House/Villa</option>
                   <option value="Apartment">Apartment</option>
-                  <option value="Villa">Villa</option>
-                  <option value="House">House</option>
-                  <option value="Office">Office</option>
+                  <option value="Flat">Flat</option>
+                  <option value="Plot">Plot</option>
+                  <option value="Land">Land</option>
                 </select>
                 <div className="absolute inset-y-0 right-0 flex items-center px-2 pointer-events-none">
                   <i className="fas fa-chevron-down text-gray-400"></i>
@@ -390,7 +433,7 @@ const AddProperty: React.FC = () => {
               <input
                 type="text"
                 placeholder="Enter unit number"
-                className="w-full px-4 py-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-700"
+                className="w-full px-4 py-3 border border-gray-300 rounded-md outline-none text-gray-700"
                 {...register("unitNumber")}
                 disabled={isSubmitting}
               />
@@ -403,7 +446,7 @@ const AddProperty: React.FC = () => {
               <input
                 type="text"
                 placeholder="Enter flat name"
-                className="w-full px-4 py-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-700"
+                className="w-full px-4 py-3 border border-gray-300 rounded-md outline-none text-gray-700"
                 {...register("flatName")}
                 disabled={isSubmitting}
               />
@@ -421,7 +464,7 @@ const AddProperty: React.FC = () => {
               placeholder="Enter locality"
               className={`w-full px-4 py-3 border ${
                 errors.locality ? "border-red-300" : "border-gray-300"
-              } rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500`}
+              } rounded-md outline-none`}
               {...register("locality", {
                 required: "Locality is required",
               })}
@@ -442,7 +485,7 @@ const AddProperty: React.FC = () => {
               placeholder="Enter city"
               className={`w-full px-4 py-3 border ${
                 errors.city ? "border-red-300" : "border-gray-300"
-              } rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500`}
+              } rounded-md outline-none`}
               {...register("city", {
                 required: "City is required",
               })}
@@ -463,7 +506,7 @@ const AddProperty: React.FC = () => {
             placeholder="Enter phone number"
             className={`w-full px-4 py-3 border ${
               errors.phoneNumber ? "border-red-300" : "border-gray-300"
-            } rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500`}
+            } rounded-md outline-none`}
             {...register("phoneNumber", {
               required: "Phone number is required",
               pattern: {
@@ -496,7 +539,7 @@ const AddProperty: React.FC = () => {
                   min="0"
                   className={`flex-1 px-4 py-3 border ${
                     errors.builtUpArea ? "border-red-300" : "border-gray-300"
-                  } rounded-l-md focus:outline-none focus:ring-2 focus:ring-blue-500`}
+                  } rounded-l-md outline-none`}
                   {...register("builtUpArea", {
                     required: "Built-up area is required",
                     min: { value: 1, message: "Area must be greater than 0" },
@@ -522,7 +565,7 @@ const AddProperty: React.FC = () => {
                   type="number"
                   min="0"
                   placeholder="Enter area"
-                  className="flex-1 px-4 py-3 border border-gray-300 rounded-l-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="flex-1 px-4 py-3 border border-gray-300 rounded-l-md outline-none"
                   {...register("superBuiltUpArea")}
                   disabled={isSubmitting}
                 />
@@ -540,7 +583,7 @@ const AddProperty: React.FC = () => {
                   type="number"
                   min="0"
                   placeholder="Enter area"
-                  className="flex-1 px-4 py-3 border border-gray-300 rounded-l-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="flex-1 px-4 py-3 border border-gray-300 rounded-l-md outline-none"
                   {...register("carpetArea")}
                   disabled={isSubmitting}
                 />
@@ -565,8 +608,8 @@ const AddProperty: React.FC = () => {
                 <button
                   type="button"
                   className={`w-full px-4 py-3 text-left border ${
-                    !bhkValue ? "border-red-300" : "border-gray-300"
-                  } rounded-md bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-700 cursor-pointer flex justify-between items-center`}
+                    formSubmitted && !bhkValue ? "border-red-300" : "border-gray-300"
+                  } rounded-md bg-white outline-none text-gray-700 cursor-pointer flex justify-between items-center`}
                   onClick={() => toggleDropdown("bhkDropdown")}
                   disabled={isSubmitting}
                 >
@@ -590,7 +633,7 @@ const AddProperty: React.FC = () => {
                   ))}
                 </div>
               </div>
-              {!bhkValue && (
+              {formSubmitted && !bhkValue && (
                 <p className="mt-1 text-sm text-red-600">BHK is required</p>
               )}
             </div>
@@ -603,8 +646,8 @@ const AddProperty: React.FC = () => {
                 <button
                   type="button"
                   className={`w-full px-4 py-3 text-left border ${
-                    !bathroomsValue ? "border-red-300" : "border-gray-300"
-                  } rounded-md bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-700 cursor-pointer flex justify-between items-center`}
+                    formSubmitted && !bathroomsValue ? "border-red-300" : "border-gray-300"
+                  } rounded-md bg-white outline-none text-gray-700 cursor-pointer flex justify-between items-center`}
                   onClick={() => toggleDropdown("bathroomsDropdown")}
                   disabled={isSubmitting}
                 >
@@ -633,7 +676,7 @@ const AddProperty: React.FC = () => {
                   ))}
                 </div>
               </div>
-              {!bathroomsValue && (
+              {formSubmitted && !bathroomsValue && (
                 <p className="mt-1 text-sm text-red-600">
                   Bathrooms count is required
                 </p>
@@ -647,7 +690,7 @@ const AddProperty: React.FC = () => {
               <div className="relative">
                 <button
                   type="button"
-                  className="w-full px-4 py-3 text-left border border-gray-300 rounded-md bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-700 cursor-pointer flex justify-between items-center"
+                  className="w-full px-4 py-3 text-left border border-gray-300 rounded-md bg-white outline-none text-gray-700 cursor-pointer flex justify-between items-center"
                   onClick={() => toggleDropdown("balconiesDropdown")}
                   disabled={isSubmitting}
                 >
@@ -692,7 +735,7 @@ const AddProperty: React.FC = () => {
               <div className="relative">
                 <button
                   type="button"
-                  className="w-full px-4 py-3 text-left border border-gray-300 rounded-md bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-700 cursor-pointer flex justify-between items-center"
+                  className="w-full px-4 py-3 text-left border border-gray-300 rounded-md bg-white outline-none text-gray-700 cursor-pointer flex justify-between items-center"
                   onClick={() => toggleDropdown("ownershipDropdown")}
                   disabled={isSubmitting}
                 >
@@ -730,7 +773,7 @@ const AddProperty: React.FC = () => {
               <div className="relative">
                 <button
                   type="button"
-                  className="w-full px-4 py-3 text-left border border-gray-300 rounded-md bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-700 cursor-pointer flex justify-between items-center"
+                  className="w-full px-4 py-3 text-left border border-gray-300 rounded-md bg-white outline-none text-gray-700 cursor-pointer flex justify-between items-center"
                   onClick={() => toggleDropdown("leaseTypeDropdown")}
                   disabled={isSubmitting}
                 >
@@ -772,13 +815,11 @@ const AddProperty: React.FC = () => {
               <div className="relative">
                 <select
                   {...register("parking")}
-                  className="w-full py-3 px-4 bg-white border border-gray-300 rounded-md text-gray-700 appearance-none focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
+                  className="w-full py-3 px-4 bg-white border border-gray-300 rounded-md text-gray-700 appearance-none outline-none cursor-pointer"
                   disabled={isSubmitting}
                 >
                   <option value="Yes">Available</option>
                   <option value="No">Not Available</option>
-                  <option value="Covered">Covered Parking</option>
-                  <option value="Open">Open Parking</option>
                 </select>
                 <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-700">
                   <i className="fas fa-chevron-down text-xs"></i>
@@ -793,12 +834,11 @@ const AddProperty: React.FC = () => {
               <div className="relative">
                 <select
                   {...register("possessionStatus")}
-                  className="w-full py-3 px-4 bg-white border border-gray-300 rounded-md text-gray-700 appearance-none focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
+                  className="w-full py-3 px-4 bg-white border border-gray-300 rounded-md text-gray-700 appearance-none outline-none cursor-pointer"
                   disabled={isSubmitting}
                 >
                   <option value="Ready to Move">Ready to Move</option>
                   <option value="Under Construction">Under Construction</option>
-                  <option value="Forthcoming">Forthcoming</option>
                 </select>
                 <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-700">
                   <i className="fas fa-chevron-down text-xs"></i>
@@ -813,12 +853,12 @@ const AddProperty: React.FC = () => {
               <div className="relative">
                 <select
                   {...register("furnishedStatus")}
-                  className="w-full py-3 px-4 bg-white border border-gray-300 rounded-md text-gray-700 appearance-none focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
+                  className="w-full py-3 px-4 bg-white border border-gray-300 rounded-md text-gray-700 appearance-none outline-none cursor-pointer"
                   disabled={isSubmitting}
                 >
                   <option value="Furnished">Fully Furnished</option>
                   <option value="Semi-Furnished">Semi-Furnished</option>
-                  <option value="Unfurnished">Unfurnished</option>
+                  <option value="Non-Furnished">Non-Furnished</option>
                 </select>
                 <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-700">
                   <i className="fas fa-chevron-down text-xs"></i>
@@ -833,14 +873,13 @@ const AddProperty: React.FC = () => {
               <div className="relative">
                 <select
                   {...register("ageOfProperty")}
-                  className="w-full py-3 px-4 bg-white border border-gray-300 rounded-md text-gray-700 appearance-none focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
+                  className="w-full py-3 px-4 bg-white border border-gray-300 rounded-md text-gray-700 appearance-none outline-none cursor-pointer"
                   disabled={isSubmitting}
                 >
                   <option value="0–1 year">Less than 1 year</option>
                   <option value="1–5 years">1-5 years</option>
                   <option value="5–10 years">5-10 years</option>
                   <option value="10+ years">10+ years</option>
-                  <option value="Under Construction">Under Construction</option>
                 </select>
                 <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-700">
                   <i className="fas fa-chevron-down text-xs"></i>
@@ -863,7 +902,7 @@ const AddProperty: React.FC = () => {
                   {...register("description")}
                   placeholder="Describe the property..."
                   rows={5}
-                  className="w-full py-3 px-4 bg-white border border-gray-300 rounded-md text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+                  className="w-full py-3 px-4 bg-white border border-gray-300 rounded-md text-gray-700 outline-none resize-none"
                   disabled={isSubmitting}
                 ></textarea>
               </div>
@@ -876,7 +915,7 @@ const AddProperty: React.FC = () => {
                   {...register("additionalNotes")}
                   placeholder="Any additional notes..."
                   rows={5}
-                  className="w-full py-3 px-4 bg-white border border-gray-300 rounded-md text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+                  className="w-full py-3 px-4 bg-white border border-gray-300 rounded-md text-gray-700 outline-none resize-none"
                   disabled={isSubmitting}
                 ></textarea>
               </div>

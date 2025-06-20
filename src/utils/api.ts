@@ -1,5 +1,5 @@
 import axios from "axios";
-import type { login, PropertyFormData, PropertyFilters } from "./types";
+import type { login, PropertyFormData, PropertyFilters, UserFilters } from "./types";
 
 export const baseUrl = "http://localhost:3000";
 
@@ -42,4 +42,29 @@ export const addPropertyApi = (data: PropertyFormData) => {
 // Get all properties with optional filters
 export const getAllPropertiesApi = (filters?: PropertyFilters) => {
   return authApi.get("/properties", { params: filters });
+};
+
+// Get all available cities
+export const getAllCitiesApi = () => {
+  return authApi.get("/customize/cities");
+};
+
+// Get all users with optional loginType filter
+export const getUsersApi = (filters?: UserFilters) => {
+  return authApi.get("/users", { params: filters });
+};
+
+// Delete a user by ID
+export const deleteUserApi = (userId: string) => {
+  return authApi.delete(`/users/${userId}`);
+};
+
+// Delete a property by ID
+export const deletePropertyApi = (propertyId: string) => {
+  return authApi.delete(`/properties/${propertyId}`);
+};
+
+// Update a property by ID
+export const updatePropertyApi = (propertyId: string, data: PropertyFormData) => {
+  return authApi.patch(`/properties/${propertyId}`, data);
 };

@@ -1,44 +1,55 @@
 import React, { useState, useEffect } from 'react';
+import { getUsersApi, deleteUserApi } from '../../../utils/api';
+import type { User } from '../../../utils/types';
+import ConfirmationModal from '../../../components/ConfirmationModal';
 
 const Users: React.FC = () => {
   const [activeTab, setActiveTab] = useState('All');
   const [searchQuery, setSearchQuery] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [allUsers, setAllUsers] = useState<User[]>([]);
   
   // Pagination states
   const [currentPage, setCurrentPage] = useState(1);
   const [usersPerPage] = useState(5);
+  
+  // Delete confirmation modal states
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [userToDelete, setUserToDelete] = useState<string | null>(null);
+  const [deleteLoading, setDeleteLoading] = useState(false);
+  
+  // Fetch users from API
+  useEffect(() => {
+    const fetchUsers = async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const params = activeTab !== 'All' ? { loginType: activeTab } : undefined;
+        const response = await getUsersApi(params);
+        setAllUsers(response.data);
+      } catch (err) {
+        console.error('Error fetching users:', err);
+        setError('Failed to load users. Please try again later.');
+        // Fallback to empty array if API fails
+        setAllUsers([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    fetchUsers();
+  }, [activeTab]);
   
   // Reset to first page when filters change
   useEffect(() => {
     setCurrentPage(1);
   }, [activeTab, searchQuery]);
   
-  const allUsers = [
-    { id: 1, name: 'John Edward', email: 'johnedward2@gmail.com', phone: 'NA', loginType: 'Email' },
-    { id: 2, name: 'Ali Khan', email: 'ali@gmail.com', phone: '+923169275330', loginType: 'Email' },
-    { id: 3, name: 'John Eduardo', email: 'john345@gmail.com', phone: 'NA', loginType: 'Email' },
-    { id: 4, name: 'Kavita Yadav', email: 'yadavkarita38@gmail.com', phone: '+919876543210', loginType: 'Google' },
-    { id: 5, name: 'Aasav Shah', email: 'shahaasav@gmail.com', phone: 'NA', loginType: 'Google' },
-    { id: 6, name: 'Muzamil Khan', email: 'muzamilkhan111814@gmail.com', phone: '+923169275329', loginType: 'Email' },
-    { id: 7, name: 'Priya Patel', email: 'priya.patel@gmail.com', phone: '+919876543211', loginType: 'Google' },
-    { id: 8, name: 'Rahul Sharma', email: 'rahul.sharma@gmail.com', phone: '+919876543212', loginType: 'Email' },
-    { id: 9, name: 'Neha Singh', email: 'neha.singh@gmail.com', phone: 'NA', loginType: 'Google' },
-    { id: 10, name: 'Vikram Reddy', email: 'vikram.reddy@gmail.com', phone: '+919876543213', loginType: 'Email' },
-    { id: 11, name: 'Anjali Gupta', email: 'anjali.gupta@gmail.com', phone: '+919876543214', loginType: 'Google' },
-    { id: 12, name: 'Rajesh Khanna', email: 'rajesh.khanna@gmail.com', phone: 'NA', loginType: 'Email' },
-    { id: 13, name: 'Sunita Verma', email: 'sunita.verma@gmail.com', phone: '+919876543215', loginType: 'Google' },
-    { id: 14, name: 'Amit Kumar', email: 'amit.kumar@gmail.com', phone: '+919876543216', loginType: 'Email' },
-    { id: 15, name: 'Deepika Padukone', email: 'deepika@gmail.com', phone: 'NA', loginType: 'Google' },
-  ];
-
   const filteredUsers = allUsers.filter(user => {
-    if (activeTab !== 'All' && user.loginType !== activeTab) {
-      return false;
-    }
-    
     if (searchQuery) {
       return (
-        user.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        user.username.toLowerCase().includes(searchQuery.toLowerCase()) ||
         user.email.toLowerCase().includes(searchQuery.toLowerCase())
       );
     }
@@ -71,9 +82,43 @@ const Users: React.FC = () => {
     }
   };
 
-  const handleDeleteUser = (id: number) => {
-    // In a real application, this would connect to an API to delete the user
-    console.log(`Delete user with ID: ${id}`);
+  // Open confirmation modal before deleting
+  const handleDeleteUser = (id: string) => {
+    setUserToDelete(id);
+    setIsDeleteModalOpen(true);
+  };
+  
+  // Handle the actual deletion after confirmation
+  const confirmDeleteUser = async () => {
+    if (!userToDelete) return;
+    
+    setDeleteLoading(true);
+    try {
+      await deleteUserApi(userToDelete);
+      
+      // After successful deletion, refresh the user list
+      const params = activeTab !== 'All' ? { loginType: activeTab } : undefined;
+      const response = await getUsersApi(params);
+      setAllUsers(response.data);
+      
+      // Show success message (optional)
+      // You could add a toast notification here
+      
+    } catch (err) {
+      console.error('Error deleting user:', err);
+      setError('Failed to delete user. Please try again later.');
+    } finally {
+      // Close the modal and reset states
+      setIsDeleteModalOpen(false);
+      setUserToDelete(null);
+      setDeleteLoading(false);
+    }
+  };
+  
+  // Cancel deletion
+  const cancelDeleteUser = () => {
+    setIsDeleteModalOpen(false);
+    setUserToDelete(null);
   };
 
   const getInitials = (name: string) => {
@@ -158,7 +203,22 @@ const Users: React.FC = () => {
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-100">
-              {filteredUsers.length === 0 ? (
+              {loading ? (
+                <tr>
+                  <td colSpan={5} className="px-6 py-10 text-center text-gray-500">
+                    <i className="fas fa-spinner fa-spin text-4xl mb-3"></i>
+                    <p className="text-lg">Loading users...</p>
+                  </td>
+                </tr>
+              ) : error ? (
+                <tr>
+                  <td colSpan={5} className="px-6 py-10 text-center text-gray-500">
+                    <i className="fas fa-exclamation-triangle text-4xl mb-3 text-red-500"></i>
+                    <p className="text-lg text-red-500">{error}</p>
+                    <p className="mt-1 text-sm">Please try again later</p>
+                  </td>
+                </tr>
+              ) : filteredUsers.length === 0 ? (
                 <tr>
                   <td colSpan={5} className="px-6 py-10 text-center text-gray-500">
                     <i className="fas fa-search text-4xl mb-3"></i>
@@ -171,17 +231,17 @@ const Users: React.FC = () => {
                 <tr key={user.id} className="hover:bg-gray-50">
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="flex items-center">
-                      {user.name === 'Kavita Yadav' ? (
+                      {user.username === 'Kavita Yadav' ? (
                         <div className="h-10 w-10 rounded-full bg-pink-500 flex items-center justify-center text-white font-medium">
                           K
                         </div>
                       ) : (
                         <div className="h-10 w-10 rounded-full bg-gray-200 flex items-center justify-center text-gray-600 font-medium">
-                          {getInitials(user.name)}
+                          {getInitials(user.username)}
                         </div>
                       )}
                       <div className="ml-4">
-                        <div className="text-sm font-medium text-gray-900">{user.name}</div>
+                        <div className="text-sm font-medium text-gray-900">{user.username}</div>
                       </div>
                     </div>
                   </td>
@@ -192,7 +252,7 @@ const Users: React.FC = () => {
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
-                    {user.phone}
+                    {user.phoneNumber}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <span className={`px-3 py-1 inline-flex text-xs leading-5 font-medium rounded-full ${
@@ -206,7 +266,10 @@ const Users: React.FC = () => {
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                     <button 
                       onClick={() => handleDeleteUser(user.id)}
-                      className="text-red-500 hover:text-red-700 cursor-pointer !rounded-button whitespace-nowrap"
+                      disabled={deleteLoading}
+                      className={`text-red-500 hover:text-red-700 cursor-pointer !rounded-button whitespace-nowrap ${
+                        deleteLoading ? 'opacity-50 cursor-not-allowed' : ''
+                      }`}
                     >
                       <i className="fas fa-trash-alt"></i>
                     </button>
@@ -217,7 +280,7 @@ const Users: React.FC = () => {
           </table>
           
           {/* Pagination */}
-          {filteredUsers.length > 0 && (
+          {!loading && !error && filteredUsers.length > 0 && (
             <div className="px-6 py-4 bg-white border-t border-gray-200 flex justify-between items-center">
               <div className="text-sm text-gray-700">
                 Showing <span className="font-medium">{indexOfFirstUser + 1}</span> to{" "}
@@ -291,6 +354,17 @@ const Users: React.FC = () => {
           )}
         </div>
       </div>
+      
+      {/* Delete Confirmation Modal */}
+      <ConfirmationModal
+        isOpen={isDeleteModalOpen}
+        title="Delete User"
+        message="Are you sure you want to delete this user? This action cannot be undone."
+        confirmText={deleteLoading ? "Deleting..." : "Delete"}
+        cancelText="Cancel"
+        onConfirm={confirmDeleteUser}
+        onCancel={cancelDeleteUser}
+      />
     </div>
   );
 };

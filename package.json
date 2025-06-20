@@ -15,6 +15,7 @@
     "@tanstack/react-query-devtools": "^5.80.7",
     "axios": "^1.10.0",
     "echarts": "^5.6.0",
+    "firebase": "^11.9.1",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
     "react-hook-form": "^7.58.1",

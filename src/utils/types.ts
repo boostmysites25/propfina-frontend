@@ -39,6 +39,18 @@ export interface PropertyFilters {
   intent?: string;
 }
 
+export interface User {
+  id: string;
+  username: string;
+  email: string;
+  phoneNumber: string;
+  loginType: string;
+}
+
+export interface UserFilters {
+  loginType?: string;
+}
+
 export interface Property {
   id: string;
   projectName: string;
@@ -54,15 +66,32 @@ export interface Property {
   buildingTypeOriginal?: string;
   cityOriginal?: string;
   images?: string[];
+  photos?: string[];
   // Additional fields
   propertyType?: string;
   locality?: string;
   furnishedStatus?: string;
+  furnishedStatusOriginal?: string;
   possessionStatus?: string;
+  possessionStatusOriginal?: string;
   bhk?: string;
   bathrooms?: string;
+  washroom?: string;
   balconies?: string;
-  builtUpArea?: number;
-  carpetArea?: number;
-  superBuiltUpArea?: number;
+  balcony?: string;
+  builtUpArea?: string | number;
+  carpetArea?: string | number;
+  superBuiltUpArea?: string | number;
+  flatName?: string;
+  unitNumber?: string;
+  ageOfProperty?: string;
+  ageOfPropertyOriginal?: string;
+  ownership?: string;
+  ownershipOriginal?: string;
+  leaseType?: string;
+  leaseTypeOriginal?: string;
+  parking?: string;
+  parkingOriginal?: string;
+  reason?: string;
+  deleted?: boolean;
 }

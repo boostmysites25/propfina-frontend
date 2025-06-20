@@ -5,6 +5,7 @@ import Login from "./pages/auth/Login";
 import Dashboard from "./pages/private/Dashboard/Dashboard";
 import AdminLayout from "./components/AdminLayout";
 import AddProperty from "./pages/private/AddProperty/AddProperty";
+import EditProperty from "./pages/private/EditProperty/EditProperty";
 import AllProperties from "./pages/private/AllProperties/AllProperties";
 import VisitsAndScheduling from "./pages/private/VisitsAndScheduling/VisitsAndScheduling";
 import Users from "./pages/private/Users/Users";
@@ -15,22 +16,6 @@ import { isAuthenticated } from "./utils/auth";
 import ProtectedRoute from "./components/ProtectedRoute";
 
 function App() {
-  // const [authChecked, setAuthChecked] = useState(false);
-
-  // // Check authentication status when the app loads
-  // useEffect(() => {
-  //   setAuthChecked(true);
-  // }, []);
-
-  // // Don't render routes until auth check is complete
-  // if (!authChecked) {
-  //   return (
-  //     <div className="min-h-screen flex items-center justify-center">
-  //       <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-gray-900"></div>
-  //     </div>
-  //   );
-  // }
-
   return (
     <BrowserRouter>
       <Toaster
@@ -43,8 +28,7 @@ function App() {
         <Route
           path="/login"
           element={
-            // isAuthenticated() ? <Navigate to="/dashboard" replace /> :
-             <Login />
+            isAuthenticated() ? <Navigate to="/dashboard" replace /> : <Login />
           }
         />
         <Route
@@ -58,6 +42,7 @@ function App() {
           <Route index element={<Navigate to="dashboard" replace={true} />} />
           <Route path="dashboard" element={<Dashboard />} />
           <Route path="add-property" element={<AddProperty />} />
+          <Route path="edit-property/:id" element={<EditProperty />} />
           <Route path="properties" element={<AllProperties />} />
           <Route path="visits" element={<VisitsAndScheduling />} />
           <Route path="users" element={<Users />} />

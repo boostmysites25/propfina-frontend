@@ -1,8 +1,13 @@
 import React, { useState, useEffect, useMemo } from "react";
-import { useQuery } from "@tanstack/react-query";
-import { getAllPropertiesApi } from "../../../utils/api";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import {
+  getAllPropertiesApi,
+  getAllCitiesApi,
+  deletePropertyApi,
+} from "../../../utils/api";
 import { toast } from "react-hot-toast";
 import type { Property, PropertyFilters } from "../../../utils/types";
+import ConfirmationModal from "../../../components/ConfirmationModal";
 
 const AllProperties: React.FC = () => {
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
@@ -12,7 +17,12 @@ const AllProperties: React.FC = () => {
   const [buildingTypeFilter, setBuildingTypeFilter] = useState("All");
   const [locationFilter, setLocationFilter] = useState("All");
   const [sortFilter, setSortFilter] = useState("Date: Newest First");
-  
+
+  // Delete property state
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [propertyToDelete, setPropertyToDelete] = useState<string | null>(null);
+  const queryClient = useQueryClient();
+
   // Available cities from API response
   const [availableCities, setAvailableCities] = useState<string[]>([]);
 
@@ -60,56 +70,108 @@ const AllProperties: React.FC = () => {
   const sortOptions = [
     { label: "Date: Newest First", value: "newest" },
     { label: "Date: Oldest First", value: "oldest" },
-    { label: "Price: Low to High", value: "priceHigh" },
-    { label: "Price: High to Low", value: "priceLow" },
+    { label: "Price: Low to High", value: "priceLow" },
+    { label: "Price: High to Low", value: "priceHigh" },
   ];
 
   // Prepare API filters
   const apiFilters = useMemo(() => {
     const filters: PropertyFilters = {};
-    
+
     // Add sort filter
     if (sortFilter === "Date: Newest First") filters.sort = "newest";
     else if (sortFilter === "Date: Oldest First") filters.sort = "oldest";
-    else if (sortFilter === "Price: Low to High") filters.sort = "priceHigh";
-    else if (sortFilter === "Price: High to Low") filters.sort = "priceLow";
-    
+    else if (sortFilter === "Price: Low to High") filters.sort = "priceLow";
+    else if (sortFilter === "Price: High to Low") filters.sort = "priceHigh";
+
     // Add city filter - convert to lowercase for API
     if (locationFilter !== "All") filters.city = locationFilter.toLowerCase();
-    
+
     // Add building type filter - convert to lowercase for API
-    if (buildingTypeFilter !== "All") filters.buildingType = buildingTypeFilter.toLowerCase();
-    
+    if (buildingTypeFilter !== "All")
+      filters.buildingType = buildingTypeFilter.toLowerCase();
+
     // Add intent filter - convert to lowercase for API
     if (propertyTypeFilter === "Buy Properties") filters.intent = "buy";
     else if (propertyTypeFilter === "Rent Properties") filters.intent = "rent";
     else if (propertyTypeFilter === "PG Properties") filters.intent = "pg";
-    
+
     return filters;
   }, [sortFilter, locationFilter, buildingTypeFilter, propertyTypeFilter]);
 
   // Fetch properties from API
-  const { data, isLoading, isError, error } = useQuery({
-    queryKey: ['properties', apiFilters],
+  const propertiesQuery = useQuery({
+    queryKey: ["properties", apiFilters],
     queryFn: () => getAllPropertiesApi(apiFilters),
-    onSuccess: (response) => {
-      // Extract unique cities from the response
-      if (response.data && Array.isArray(response.data)) {
-        const cities = [...new Set(response.data.map((property: Property) => 
-          property.cityOriginal || property.city || ''
-        ))].filter(city => city !== '');
-        
-        // Sort cities alphabetically
-        cities.sort();
-        
-        setAvailableCities(["All", ...cities]);
-      }
+  });
+
+  const { data, isLoading, isError, error } = propertiesQuery;
+
+  // Fetch cities from dedicated API endpoint
+  const citiesQuery = useQuery({
+    queryKey: ["cities"],
+    queryFn: getAllCitiesApi,
+  });
+
+  // Update available cities when cities data changes
+  useEffect(() => {
+    if (citiesQuery.data?.data && Array.isArray(citiesQuery.data.data)) {
+      // Sort cities alphabetically
+      const cities = [...citiesQuery.data.data].sort();
+      setAvailableCities(["All", ...cities]);
+    }
+  }, [citiesQuery.data]);
+
+  // Handle cities API error
+  useEffect(() => {
+    if (citiesQuery.isError && citiesQuery.error) {
+      console.error("Error fetching cities:", citiesQuery.error);
+      toast.error("Failed to load cities. Please try again.");
+    }
+  }, [citiesQuery.isError, citiesQuery.error]);
+
+  // Delete property mutation
+  const deleteMutation = useMutation({
+    mutationFn: (propertyId: string) => deletePropertyApi(propertyId),
+    onSuccess: () => {
+      toast.success("Property deleted successfully");
+      queryClient.invalidateQueries({ queryKey: ["properties"] });
+      setIsDeleteModalOpen(false);
+      setPropertyToDelete(null);
     },
-    onError: (err) => {
-      console.error("Error fetching properties:", err);
+    onError: (error) => {
+      console.error("Error deleting property:", error);
+      toast.error("Failed to delete property. Please try again.");
+      setIsDeleteModalOpen(false);
+    },
+  });
+
+  // Handle delete property
+  const handleDeleteProperty = (propertyId: string) => {
+    setPropertyToDelete(propertyId);
+    setIsDeleteModalOpen(true);
+  };
+
+  // Confirm delete property
+  const confirmDeleteProperty = () => {
+    if (propertyToDelete) {
+      deleteMutation.mutate(propertyToDelete);
+    }
+  };
+  
+  // Cancel delete property
+  const cancelDeleteProperty = () => {
+    setIsDeleteModalOpen(false);
+    setPropertyToDelete(null);
+  };
+
+  // Handle error
+  useEffect(() => {
+    if (isError && error) {
+      console.error("Error fetching properties:", error);
       toast.error("Failed to load properties. Please try again.");
     }
-  });
+  }, [isError, error]);
 
   // Close dropdowns when clicking outside
   useEffect(() => {
@@ -138,29 +200,53 @@ const AllProperties: React.FC = () => {
   // Process properties from API response
   const properties = useMemo(() => {
     if (!data?.data || !Array.isArray(data.data)) return [];
-    
+
     return data.data.map((property: Property) => {
       // Convert timestamp to date string
-      const timestamp = property.createdAt?._seconds 
-        ? new Date(property.createdAt._seconds * 1000).toISOString() 
+      const timestamp = property.createdAt?._seconds
+        ? new Date(property.createdAt._seconds * 1000).toISOString()
         : new Date().toISOString();
-      
+
       // Use the original capitalized values if available
-      const propertyType = property.intentOriginal || property.intent || '';
-      const buildingType = property.buildingTypeOriginal || property.buildingType || '';
-      const location = property.cityOriginal || property.city || '';
-      
+      const propertyType = property.intentOriginal || property.intent || "";
+      const buildingType =
+        property.buildingTypeOriginal || property.buildingType || "";
+      const location = property.cityOriginal || property.city || "";
+      const possessionStatus =
+        property.possessionStatusOriginal || property.possessionStatus || "";
+      const furnishedStatus =
+        property.furnishedStatusOriginal || property.furnishedStatus || "";
+      const propertyCategory = property.propertyType || "";
+      const ageOfProperty =
+        property.ageOfPropertyOriginal || property.ageOfProperty || "";
+
       return {
         id: property.id,
         name: property.projectName,
-        price: `₹${property.price.toLocaleString('en-IN')}`,
+        price: `₹${property.price.toLocaleString("en-IN")}`,
         location: location,
         date: timestamp,
         type: propertyType,
         buildingType: buildingType,
-        image: property.images && property.images.length > 0 
-          ? property.images[0] 
-          : "https://readdy.ai/api/search-image?query=Modern%20apartment%20building%20with%20balconies%20and%20large%20windows%2C%20surrounded%20by%20landscaped%20gardens%20and%20walking%20paths.&width=600&height=400&seq=5&orientation=landscape"
+        bhk: property.bhk || "",
+        bathrooms: property.washroom || property.bathrooms || "",
+        balcony: property.balcony || property.balconies || "",
+        builtUpArea: property.builtUpArea || "",
+        carpetArea: property.carpetArea || "",
+        superBuiltUpArea: property.superBuiltUpArea || "",
+        propertyCategory: propertyCategory,
+        possessionStatus: possessionStatus,
+        furnishedStatus: furnishedStatus,
+        ageOfProperty: ageOfProperty,
+        flatName: property.flatName || "",
+        unitNumber: property.unitNumber || "",
+        locality: property.locality || "",
+        image:
+          property.images && property.images.length > 0
+            ? property.images[0]
+            : property.photos && property.photos.length > 0
+            ? property.photos[0]
+            : "",
       };
     });
   }, [data]);
@@ -168,11 +254,12 @@ const AllProperties: React.FC = () => {
   // Apply search filter locally (since API doesn't support search)
   const filteredProperties = useMemo(() => {
     if (!searchQuery) return properties;
-    
+
     const query = searchQuery.toLowerCase().trim();
-    return properties.filter(property => 
-      (property.name && property.name.toLowerCase().includes(query)) ||
-      (property.location && property.location.toLowerCase().includes(query))
+    return properties.filter(
+      (property) =>
+        (property.name && property.name.toLowerCase().includes(query)) ||
+        (property.location && property.location.toLowerCase().includes(query))
     );
   }, [properties, searchQuery]);
 
@@ -313,14 +400,18 @@ const AllProperties: React.FC = () => {
           <button
             className="w-full flex items-center justify-between p-2 border border-gray-300 rounded-lg bg-white text-sm cursor-pointer whitespace-nowrap"
             onClick={(e) => toggleDropdown(setLocationDropdownOpen, e)}
-            disabled={isLoading}
+            disabled={citiesQuery.isLoading}
           >
             <span>{locationFilter}</span>
             <i className="fas fa-chevron-down ml-2 text-gray-500"></i>
           </button>
           {locationDropdownOpen && (
             <div className="absolute z-10 mt-1 w-full bg-white border border-gray-300 rounded-lg shadow-lg">
-              {availableCities.length > 0 ? (
+              {citiesQuery.isLoading ? (
+                <div className="p-2 text-sm text-gray-500">
+                  Loading cities...
+                </div>
+              ) : availableCities.length > 0 ? (
                 availableCities.map((option) => (
                   <div
                     key={option}
@@ -334,8 +425,14 @@ const AllProperties: React.FC = () => {
                     {option}
                   </div>
                 ))
+              ) : citiesQuery.isError ? (
+                <div className="p-2 text-sm text-red-500">
+                  Failed to load cities
+                </div>
               ) : (
-                <div className="p-2 text-sm text-gray-500">Loading cities...</div>
+                <div className="p-2 text-sm text-gray-500">
+                  No cities available
+                </div>
               )}
             </div>
           )}
@@ -383,7 +480,7 @@ const AllProperties: React.FC = () => {
           <i className="fas fa-exclamation-circle text-5xl mb-4"></i>
           <p className="text-xl">Failed to load properties</p>
           <p className="mt-2">Please try again later or contact support</p>
-          <button 
+          <button
             className="mt-4 px-4 py-2 bg-gray-800 text-white rounded-md hover:bg-gray-700"
             onClick={() => window.location.reload()}
           >
@@ -404,89 +501,188 @@ const AllProperties: React.FC = () => {
           {filteredProperties.length === 0 ? (
             <div className="col-span-full flex flex-col items-center justify-center py-12 text-gray-500">
               <i className="fas fa-search text-5xl mb-4"></i>
-              <p className="text-xl">No properties found matching your filters</p>
+              <p className="text-xl">
+                No properties found matching your filters
+              </p>
               <p className="mt-2">Try adjusting your search criteria</p>
             </div>
           ) : (
             currentProperties.map((property) => (
-            <div
-              key={property.id}
-              className={`bg-white rounded-lg shadow-md overflow-hidden transition-transform duration-300 hover:shadow-lg hover:-translate-y-1 ${
-                viewMode === "list" ? "flex" : ""
-              }`}
-            >
               <div
-                className={`relative overflow-hidden ${
-                  viewMode === "grid"
-                    ? "w-full"
-                    : "min-w-[200px] max-w-[200px] h-[150px] rounded-lg"
+                key={property.id}
+                className={`bg-white rounded-lg shadow-md overflow-hidden transition-transform duration-300 hover:shadow-lg hover:-translate-y-1 ${
+                  viewMode === "list" ? "flex" : ""
                 }`}
-                style={viewMode === "grid" ? { aspectRatio: "16/9" } : {}}
               >
-                <img
-                  src={property.image}
-                  alt={property.name}
-                  className="w-full h-full object-cover object-center transition-transform duration-500 hover:scale-105"
-                  onError={(e) => {
-                    // Fallback image if the property image fails to load
-                    (e.target as HTMLImageElement).src = "https://readdy.ai/api/search-image?query=Modern%20apartment%20building%20with%20balconies%20and%20large%20windows%2C%20surrounded%20by%20landscaped%20gardens%20and%20walking%20paths.&width=600&height=400&seq=5&orientation=landscape";
-                  }}
-                />
+                <div
+                  className={`relative overflow-hidden ${
+                    viewMode === "grid"
+                      ? "w-full"
+                      : "min-w-[200px] max-w-[200px] h-[150px] rounded-lg"
+                  }`}
+                  style={viewMode === "grid" ? { aspectRatio: "16/9" } : {}}
+                >
+                  <img
+                    src={property.image}
+                    alt={property.name}
+                    className="w-full h-full object-cover object-center transition-transform duration-500 hover:scale-105"
+                    onError={(e) => {
+                      // Fallback image if the property image fails to load
+                      (e.target as HTMLImageElement).src =
+                        "https://readdy.ai/api/search-image?query=Modern%20apartment%20building%20with%20balconies%20and%20large%20windows%2C%20surrounded%20by%20landscaped%20gardens%20and%20walking%20paths.&width=600&height=400&seq=5&orientation=landscape";
+                    }}
+                  />
+                  {/* Property type badge */}
+                  <div className="absolute top-2 left-2 bg-black bg-opacity-60 text-white text-xs px-2 py-1 rounded">
+                    {property.buildingType}
+                  </div>
+                </div>
+
+                <div
+                  className={`p-4 ${viewMode === "list" ? "flex-1 ml-2" : ""}`}
+                >
+                  <div className="flex justify-between items-start mb-3">
+                    <h3 className="text-lg font-medium text-gray-800">
+                      {property.name}
+                      {property.flatName && ` - ${property.flatName}`}
+                      {property.unitNumber && ` (${property.unitNumber})`}
+                    </h3>
+                    <span
+                      className={`px-2 py-1 text-xs font-medium rounded-full ${
+                        property.type.toLowerCase().includes("buy") ||
+                        property.type.toLowerCase().includes("sell")
+                          ? "bg-blue-100 text-blue-800"
+                          : property.type.toLowerCase().includes("rent")
+                          ? "bg-green-100 text-green-800"
+                          : "bg-purple-100 text-purple-800"
+                      }`}
+                    >
+                      {property.type}
+                    </span>
+                  </div>
+
+                  <div className="mb-3">
+                    <p className="text-xl font-bold text-gray-900">
+                      {property.price}
+                    </p>
+                  </div>
+
+                  {/* Property details */}
+                  {/* <div className="grid grid-cols-2 gap-2 mb-3">
+                    {property.bhk && (
+                      <div className="flex items-center text-gray-600">
+                        <i className="fas fa-bed mr-2 text-gray-500"></i>
+                        <p className="text-sm">{property.bhk}</p>
+                      </div>
+                    )}
+                    
+                    {property.bathrooms && (
+                      <div className="flex items-center text-gray-600">
+                        <i className="fas fa-bath mr-2 text-gray-500"></i>
+                        <p className="text-sm">{property.bathrooms} Bath</p>
+                      </div>
+                    )}
+                    
+                    {property.balcony && (
+                      <div className="flex items-center text-gray-600">
+                        <i className="fas fa-door-open mr-2 text-gray-500"></i>
+                        <p className="text-sm">{property.balcony} Balcony</p>
+                      </div>
+                    )}
+                    
+                    {property.propertyCategory && (
+                      <div className="flex items-center text-gray-600">
+                        <i className="fas fa-home mr-2 text-gray-500"></i>
+                        <p className="text-sm">{property.propertyCategory}</p>
+                      </div>
+                    )}
+                  </div> */}
+
+                  {/* Area information */}
+                  {/* {(property.builtUpArea || property.carpetArea || property.superBuiltUpArea) && (
+                    <div className="mb-3 p-2 bg-gray-50 rounded-md">
+                      {property.builtUpArea && (
+                        <div className="flex justify-between text-sm">
+                          <span className="text-gray-600">Built-up Area:</span>
+                          <span className="font-medium">{property.builtUpArea} sq.ft</span>
+                        </div>
+                      )}
+                      {property.carpetArea && (
+                        <div className="flex justify-between text-sm">
+                          <span className="text-gray-600">Carpet Area:</span>
+                          <span className="font-medium">{property.carpetArea} sq.ft</span>
+                        </div>
+                      )}
+                      {property.superBuiltUpArea && (
+                        <div className="flex justify-between text-sm">
+                          <span className="text-gray-600">Super Built-up:</span>
+                          <span className="font-medium">{property.superBuiltUpArea} sq.ft</span>
+                        </div>
+                      )}
+                    </div>
+                  )} */}
+
+                  {/* Status information */}
+                  <div className="flex flex-wrap gap-2 mb-3">
+                    {property.possessionStatus && (
+                      <span className="px-2 py-1 text-xs bg-yellow-50 text-yellow-700 rounded-md">
+                        {property.possessionStatus}
+                      </span>
+                    )}
+                    {property.furnishedStatus && (
+                      <span className="px-2 py-1 text-xs bg-indigo-50 text-indigo-700 rounded-md">
+                        {property.furnishedStatus}
+                      </span>
+                    )}
+                    {property.ageOfProperty && (
+                      <span className="px-2 py-1 text-xs bg-teal-50 text-teal-700 rounded-md">
+                        {property.ageOfProperty}
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="flex items-start mb-2 text-gray-600">
+                    <i className="fas fa-map-marker-alt mt-1 mr-2 text-gray-500"></i>
+                    <p className="text-sm">
+                      {property.locality ? `${property.locality}, ` : ""}
+                      {property.location}
+                    </p>
+                  </div>
+
+                  <div className="flex items-center mb-4 text-gray-600">
+                    <i className="far fa-calendar-alt mr-2 text-gray-500"></i>
+                    <p className="text-sm">
+                      {new Date(property.date).toLocaleDateString()}
+                    </p>
+                  </div>
+
+                  <div className="flex items-center justify-between pt-3 border-t border-gray-200">
+                    <button 
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        window.location.href = `/edit-property/${property.id}`;
+                      }}
+                      className="flex items-center px-3 py-1.5 text-sm text-gray-700 bg-gray-100 rounded-lg cursor-pointer whitespace-nowrap !rounded-button hover:bg-gray-200 transition-colors"
+                    >
+                      <i className="fas fa-edit mr-1.5"></i>
+                      Edit
+                    </button>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleDeleteProperty(property.id);
+                      }}
+                      className="flex items-center px-3 py-1.5 text-sm text-red-600 bg-red-50 rounded-lg cursor-pointer whitespace-nowrap !rounded-button hover:bg-red-100 transition-colors"
+                    >
+                      <i className="fas fa-trash-alt mr-1.5"></i>
+                      Delete
+                    </button>
+                  </div>
+                </div>
               </div>
-
-              <div
-                className={`p-4 ${viewMode === "list" ? "flex-1 ml-2" : ""}`}
-              >
-                <div className="flex justify-between items-start mb-3">
-                  <h3 className="text-lg font-medium text-gray-800">
-                    {property.name}
-                  </h3>
-                  <span
-                    className={`px-2 py-1 text-xs font-medium rounded-full ${
-                      property.type.toLowerCase().includes("buy") || property.type.toLowerCase().includes("sell")
-                        ? "bg-blue-100 text-blue-800"
-                        : property.type.toLowerCase().includes("rent")
-                        ? "bg-green-100 text-green-800"
-                        : "bg-purple-100 text-purple-800"
-                    }`}
-                  >
-                    {property.type}
-                  </span>
-                </div>
-
-                <div className="mb-3">
-                  <p className="text-xl font-bold text-gray-900">
-                    {property.price}
-                  </p>
-                </div>
-
-                <div className="flex items-start mb-2 text-gray-600">
-                  <i className="fas fa-map-marker-alt mt-1 mr-2 text-gray-500"></i>
-                  <p className="text-sm">{property.location}</p>
-                </div>
-
-                <div className="flex items-center mb-4 text-gray-600">
-                  <i className="far fa-calendar-alt mr-2 text-gray-500"></i>
-                  <p className="text-sm">
-                    {new Date(property.date).toLocaleDateString()}
-                  </p>
-                </div>
-
-                <div className="flex items-center justify-between pt-3 border-t border-gray-200">
-                  <button className="flex items-center px-3 py-1.5 text-sm text-gray-700 bg-gray-100 rounded-lg cursor-pointer whitespace-nowrap !rounded-button hover:bg-gray-200 transition-colors">
-                    <i className="fas fa-edit mr-1.5"></i>
-                    Edit
-                  </button>
-                  <button className="flex items-center px-3 py-1.5 text-sm text-red-600 bg-red-50 rounded-lg cursor-pointer whitespace-nowrap !rounded-button hover:bg-red-100 transition-colors">
-                    <i className="fas fa-trash-alt mr-1.5"></i>
-                    Delete
-                  </button>
-                </div>
-              </div>
-            </div>
-          ))
-        )}
-      </div>
+            ))
+          )}
+        </div>
       )}
 
       {/* Pagination */}
@@ -562,6 +758,17 @@ const AllProperties: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* Delete Confirmation Modal */}
+      <ConfirmationModal
+        isOpen={isDeleteModalOpen}
+        title="Delete Property"
+        message="Are you sure you want to delete this property? This action cannot be undone."
+        confirmText={deleteMutation.isPending ? "Deleting..." : "Delete"}
+        cancelText="Cancel"
+        onConfirm={confirmDeleteProperty}
+        onCancel={cancelDeleteProperty}
+      />
     </div>
   );
 };

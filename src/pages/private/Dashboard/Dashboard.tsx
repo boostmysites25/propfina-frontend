@@ -9,7 +9,7 @@ interface DashboardData {
   totalVisits: number;
   totalUsers: number;
   propertiesOverTime: Array<{ month: string; count: number }>;
-  propertiesByLocation: Array<{ location: string; count: number }>;
+  propertiesByLocation: Array<{ city: string; count: number }>;
   recentUsers: Array<{
     username: string;
     email: string;
@@ -94,6 +94,9 @@ const Dashboard: React.FC = () => {
             axisTick: {
               show: false,
             },
+            axisLabel: {
+              color: "#4a5568", // Dark gray color for better readability
+            },
           },
           yAxis: {
             type: "value",
@@ -105,6 +108,9 @@ const Dashboard: React.FC = () => {
             },
             axisTick: {
               show: false,
+            },
+            axisLabel: {
+              color: "#4a5568", // Dark gray color for better readability
             },
             splitLine: {
               lineStyle: {
@@ -158,7 +164,7 @@ const Dashboard: React.FC = () => {
         
         // Use API data if available, otherwise use defaults
         const locations = data.propertiesByLocation && data.propertiesByLocation.length > 0 
-          ? data.propertiesByLocation.map(item => item.location) 
+          ? data.propertiesByLocation.map(item => item.city.toUpperCase()) 
           : defaultLocations;
           
         const counts = data.propertiesByLocation && data.propertiesByLocation.length > 0 
@@ -185,6 +191,7 @@ const Dashboard: React.FC = () => {
               interval: 0,
               rotate: 30,
               fontSize: 10,
+              color: "#4a5568", // Dark gray color for better readability
             },
             axisLine: {
               lineStyle: {
@@ -204,6 +211,9 @@ const Dashboard: React.FC = () => {
             },
             axisTick: {
               show: false,
+            },
+            axisLabel: {
+              color: "#4a5568", // Dark gray color for better readability
             },
             splitLine: {
               lineStyle: {
