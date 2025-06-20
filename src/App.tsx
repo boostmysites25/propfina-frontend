@@ -1,4 +1,5 @@
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
+import { useEffect } from "react";
 import "./App.css";
 import { Toaster } from "react-hot-toast";
 import Login from "./pages/auth/Login";
@@ -14,8 +15,25 @@ import Notifications from "./pages/private/Notifications/Notifications";
 import Settings from "./pages/private/Settings/Settings";
 import { isAuthenticated } from "./utils/auth";
 import ProtectedRoute from "./components/ProtectedRoute";
+import { initializeNotifications } from "./utils/firebaseMessaging";
+import { startAutoTokenRefresh, stopAutoTokenRefresh } from "./utils/api";
 
 function App() {
+  // Initialize notifications and auto token refresh when app loads and user is authenticated
+  useEffect(() => {
+    if (isAuthenticated()) {
+      initializeNotifications();
+      startAutoTokenRefresh();
+    } else {
+      stopAutoTokenRefresh();
+    }
+
+    // Cleanup on unmount
+    return () => {
+      stopAutoTokenRefresh();
+    };
+  }, []);
+
   return (
     <BrowserRouter>
       <Toaster

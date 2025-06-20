@@ -1,46 +1,85 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { sendNotificationApi, getAllNotificationsApi, deleteNotificationApi } from "../../../utils/api";
+import { handleApiError } from "../../../utils/errorHandler";
+import toast from "react-hot-toast";
 
 const Notifications: React.FC = () => {
   const [notificationHeading, setNotificationHeading] = useState("");
   const [notificationMessage, setNotificationMessage] = useState("");
-  const [sentNotifications, setSentNotifications] = useState([
-    {
-      id: 1,
-      heading: "hello",
-      message: "test",
-      sender: "admin",
-      timestamp: "Jun 6, 2025 2:39 PM",
+  const queryClient = useQueryClient();
+
+  // Fetch notifications from backend
+  const { data: notificationsData, isLoading, error } = useQuery({
+    queryKey: ['notifications'],
+    queryFn: async () => {
+      const response = await getAllNotificationsApi();
+      return response.data;
     },
-  ]);
+  });
+
+  // Send notification mutation
+  const sendMutation = useMutation({
+    mutationFn: sendNotificationApi,
+    onSuccess: () => {
+      toast.success("Notification sent successfully!");
+      setNotificationHeading("");
+      setNotificationMessage("");
+      // Refresh notifications list
+      queryClient.invalidateQueries({ queryKey: ['notifications'] });
+    },
+    onError: (error) => {
+      handleApiError(error, "Failed to send notification");
+    },
+  });
+
+  // Delete notification mutation
+  const deleteMutation = useMutation({
+    mutationFn: deleteNotificationApi,
+    onSuccess: () => {
+      toast.success("Notification deleted successfully!");
+      queryClient.invalidateQueries({ queryKey: ['notifications'] });
+    },
+    onError: (error) => {
+      handleApiError(error, "Failed to delete notification");
+    },
+  });
 
   const handleSendNotification = () => {
     if (notificationHeading.trim() && notificationMessage.trim()) {
-      const newNotification = {
-        id: Date.now(),
+      sendMutation.mutate({
         heading: notificationHeading,
         message: notificationMessage,
-        sender: "admin",
-        timestamp: new Date().toLocaleString("en-US", {
-          month: "short",
-          day: "numeric",
-          year: "numeric",
-          hour: "numeric",
-          minute: "2-digit",
-          hour12: true,
-        }),
-      };
-
-      setSentNotifications([newNotification, ...sentNotifications]);
-      setNotificationHeading("");
-      setNotificationMessage("");
+      });
+    } else {
+      toast.error("Please fill in both heading and message");
     }
   };
 
-  const handleDeleteNotification = (id: number) => {
-    setSentNotifications(
-      sentNotifications.filter((notification) => notification.id !== id),
-    );
+  const handleDeleteNotification = (id: string) => {
+    deleteMutation.mutate(id);
   };
+
+  // Get notifications from backend response
+  const sentNotifications = notificationsData?.data || [];
+
+  // Show loading state
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-gray-50 py-8 px-4 flex items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-gray-900"></div>
+      </div>
+    );
+  }
+
+  // Show error state
+  if (error) {
+    return (
+      <div className="min-h-screen bg-gray-50 py-8 px-4 flex items-center justify-center">
+        <div className="text-red-600">Error loading notifications. Please try again.</div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50 py-8 px-4">
@@ -93,10 +132,20 @@ const Notifications: React.FC = () => {
             <div>
               <button
                 onClick={handleSendNotification}
-                className="inline-flex items-center px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700 transition-colors duration-200 ease-in-out cursor-pointer whitespace-nowrap !rounded-button"
+                disabled={sendMutation.isPending}
+                className="inline-flex items-center px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700 transition-colors duration-200 ease-in-out cursor-pointer whitespace-nowrap !rounded-button disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                <i className="fas fa-paper-plane mr-2 text-sm"></i>
-                Send Notification
+                {sendMutation.isPending ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-b-2 border-white mr-2"></div>
+                    Sending...
+                  </>
+                ) : (
+                  <>
+                    <i className="fas fa-paper-plane mr-2 text-sm"></i>
+                    Send Notification
+                  </>
+                )}
               </button>
             </div>
           </div>
@@ -125,7 +174,22 @@ const Notifications: React.FC = () => {
                   </h3>
                   <p className="text-gray-600 mt-1">{notification.message}</p>
                   <p className="text-sm text-gray-500 mt-2">
-                    Sent by {notification.sender} • {notification.timestamp}
+                    Sent by {notification.createdBy || 'admin'} • {
+                      (() => {
+                        try {
+                          // Handle Firestore Timestamp objects
+                          if (notification.createdAt?._seconds) {
+                            return new Date(notification.createdAt._seconds * 1000).toLocaleString();
+                          }
+                          // Handle regular date strings/objects
+                          const date = new Date(notification.createdAt);
+                          return date.toLocaleString();
+                        } catch (error) {
+                          return 'Invalid Date';
+                        }
+                      })()
+                    }
+                    {notification.sent && <span className="ml-2 px-2 py-1 text-xs bg-green-100 text-green-800 rounded">Delivered</span>}
                   </p>
                 </div>
                 <button

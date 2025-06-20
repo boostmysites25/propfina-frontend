@@ -1,6 +1,11 @@
 import React, { useState } from "react";
 
-const FeaturedProperties: React.FC = () => {
+interface FeaturedPropertiesProps {
+  selectedCity: string;
+  onAddProperty: () => void;
+}
+
+const FeaturedProperties: React.FC<FeaturedPropertiesProps> = ({ selectedCity, onAddProperty }) => {
   const [properties, setProperties] = useState([
     {
       id: 1,
@@ -19,13 +24,17 @@ const FeaturedProperties: React.FC = () => {
   const handleDelete = (id: number) => {
     setProperties(properties.filter((property) => property.id !== id));
   };
+
   return (
     <div className="px-4 py-8">
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-2xl font-bold text-gray-800">
-          Featured Properties
+          Featured Properties - {selectedCity}
         </h1>
-        <button className="bg-gray-900 text-white px-4 py-2 rounded-lg flex items-center gap-2 !rounded-button cursor-pointer whitespace-nowrap">
+        <button
+          onClick={onAddProperty}
+          className="bg-gray-900 text-white px-4 py-2 rounded-lg flex items-center gap-2 !rounded-button cursor-pointer whitespace-nowrap"
+        >
           <i className="fas fa-plus mr-2"></i>
           Add Featured Property
         </button>
@@ -97,14 +106,17 @@ const FeaturedProperties: React.FC = () => {
         <div className="flex flex-col items-center justify-center h-96 bg-white rounded-lg shadow-sm p-8 text-center">
           <i className="fas fa-home text-6xl text-gray-300 mb-4"></i>
           <h3 className="text-xl font-medium text-gray-700 mb-2">
-            No Properties Found
+            No Featured Properties Found
           </h3>
           <p className="text-gray-500 mb-6">
-            There are no featured properties to display.
+            There are no featured properties for {selectedCity}.
           </p>
-          <button className="bg-gray-900 text-white px-6 py-3 rounded-lg flex items-center gap-2 !rounded-button cursor-pointer whitespace-nowrap">
+          <button
+            onClick={onAddProperty}
+            className="bg-gray-900 text-white px-6 py-3 rounded-lg flex items-center gap-2 !rounded-button cursor-pointer whitespace-nowrap"
+          >
             <i className="fas fa-plus mr-2"></i>
-            Add Your First Property
+            Add Featured Property
           </button>
         </div>
       )}
