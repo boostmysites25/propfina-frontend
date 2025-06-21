@@ -228,8 +228,23 @@ export const getUserProfileApi = () => {
 };
 
 // Notification APIs
+// Send push notification to all users
 export const sendNotificationApi = (data: { heading: string; message: string }) => {
-  return authApi.post('/notifications/send', data);
+  return authApi.post('/notifications/queue', data);
+};
+
+// Send email notification to all users
+export const sendEmailNotificationApi = (data: {
+  subject: string;
+  message: string;
+  recipients?: string[];  // Optional: specific users, otherwise all users
+}) => {
+  return authApi.post('/notifications/send-email-to-users', data);
+};
+
+// Test email functionality
+export const testEmailApi = (data: { email: string }) => {
+  return authApi.post('/notifications/simple-test', data);
 };
 
 export const getAllNotificationsApi = () => {
