@@ -1,196 +1,122 @@
 import React, { useState, useEffect } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { getVisitsApi, deleteVisitApi, sendVisitConfirmationApi } from "../../../utils/api";
+import type { Visit } from "../../../utils/types";
 
 const VisitsAndScheduling: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
-  
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [visitToDelete, setVisitToDelete] = useState<Visit | null>(null);
+
   // Pagination states
   const [currentPage, setCurrentPage] = useState(1);
   const [visitsPerPage] = useState(5);
-  
+
+  const queryClient = useQueryClient();
+
   // Reset to first page when filters change
   useEffect(() => {
     setCurrentPage(1);
   }, [searchQuery, startDate, endDate]);
 
-  // Sample data for visits
-  const allVisits = [
-    {
-      id: 1,
-      property: "Mumbai Apartment",
-      user: { name: "Rahul Sharma", email: "rahul.sharma@example.com" },
-      date: "07/02/2025",
-      time: "2:10 PM",
-      image:
-        "https://readdy.ai/api/search-image?query=Modern%20luxury%20apartment%20in%20Mumbai%20with%20panoramic%20city%20views%2C%20bright%20and%20airy%20interior%20with%20large%20windows%2C%20contemporary%20furniture%2C%20and%20elegant%20decor%2C%20professional%20real%20estate%20photography%20with%20soft%20natural%20lighting&width=80&height=60&seq=1&orientation=landscape",
+  // Fetch visits using React Query
+  const { data: visits = [], isLoading, isError, error } = useQuery<Visit[]>({
+    queryKey: ["visits", { search: searchQuery, startDate, endDate }],
+    queryFn: async () => {
+      const filters: any = {};
+      if (searchQuery) filters.search = searchQuery;
+      if (startDate) filters.startDate = startDate;
+      if (endDate) filters.endDate = endDate;
+
+      console.log('Sending filters to API:', filters);
+      const response = await getVisitsApi(filters);
+      console.log('Received visits from API:', response.data.length);
+      return response.data;
     },
-    {
-      id: 2,
-      property: "Aaren Complex",
-      user: { name: "Yash Yadav", email: "yash.yadav@example.com" },
-      date: "26/09/2024",
-      time: "10:10 AM",
-      image:
-        "https://readdy.ai/api/search-image?query=Elegant%20luxury%20apartment%20complex%20interior%20with%20marble%20floors%2C%20sophisticated%20lighting%2C%20high%20ceilings%2C%20and%20modern%20architectural%20details%2C%20professional%20real%20estate%20photography%20with%20perfect%20composition%20and%20lighting&width=80&height=60&seq=2&orientation=landscape",
-    },
-    {
-      id: 3,
-      property: "Aaren Complex",
-      user: { name: "Yash Yadav", email: "yash.yadav@example.com" },
-      date: "23/01/2025",
-      time: "9:10 AM",
-      image:
-        "https://readdy.ai/api/search-image?query=Elegant%20luxury%20apartment%20complex%20interior%20with%20marble%20floors%2C%20sophisticated%20lighting%2C%20high%20ceilings%2C%20and%20modern%20architectural%20details%2C%20professional%20real%20estate%20photography%20with%20perfect%20composition%20and%20lighting&width=80&height=60&seq=3&orientation=landscape",
-    },
-    {
-      id: 4,
-      property: "Aaren Complex",
-      user: { name: "Yash Yadav", email: "yash.yadav@example.com" },
-      date: "16/10/2024",
-      time: "10:10 AM",
-      image:
-        "https://readdy.ai/api/search-image?query=Elegant%20luxury%20apartment%20complex%20interior%20with%20marble%20floors%2C%20sophisticated%20lighting%2C%20high%20ceilings%2C%20and%20modern%20architectural%20details%2C%20professional%20real%20estate%20photography%20with%20perfect%20composition%20and%20lighting&width=80&height=60&seq=4&orientation=landscape",
-    },
-    {
-      id: 5,
-      property: "Aaren Complex",
-      user: { name: "Yash Yadav", email: "yash.yadav@example.com" },
-      date: "13/02/2025",
-      time: "12:25 PM",
-      image:
-        "https://readdy.ai/api/search-image?query=Elegant%20luxury%20apartment%20complex%20interior%20with%20marble%20floors%2C%20sophisticated%20lighting%2C%20high%20ceilings%2C%20and%20modern%20architectural%20details%2C%20professional%20real%20estate%20photography%20with%20perfect%20composition%20and%20lighting&width=80&height=60&seq=5&orientation=landscape",
-    },
-    {
-      id: 6,
-      property: "Seaside Villa",
-      user: { name: "Priya Patel", email: "priya.patel@example.com" },
-      date: "05/03/2025",
-      time: "3:30 PM",
-      image:
-        "https://readdy.ai/api/search-image?query=Luxury%20seaside%20villa%20with%20ocean%20view%2C%20modern%20architecture%2C%20infinity%20pool%2C%20and%20elegant%20outdoor%20spaces&width=80&height=60&seq=6&orientation=landscape",
-    },
-    {
-      id: 7,
-      property: "Green Valley Homes",
-      user: { name: "Amit Kumar", email: "amit.kumar@example.com" },
-      date: "12/11/2024",
-      time: "11:00 AM",
-      image:
-        "https://readdy.ai/api/search-image?query=Modern%20eco-friendly%20home%20with%20green%20surroundings%2C%20sustainable%20architecture%2C%20and%20natural%20lighting&width=80&height=60&seq=7&orientation=landscape",
-    },
-    {
-      id: 8,
-      property: "City Center Mall",
-      user: { name: "Neha Singh", email: "neha.singh@example.com" },
-      date: "19/12/2024",
-      time: "4:15 PM",
-      image:
-        "https://readdy.ai/api/search-image?query=Modern%20shopping%20mall%20with%20glass%20facade%2C%20multiple%20floors%2C%20and%20contemporary%20retail%20spaces&width=80&height=60&seq=8&orientation=landscape",
-    },
-    {
-      id: 9,
-      property: "Tech Park Plaza",
-      user: { name: "Vikram Reddy", email: "vikram.reddy@example.com" },
-      date: "08/01/2025",
-      time: "10:30 AM",
-      image:
-        "https://readdy.ai/api/search-image?query=Modern%20office%20building%20with%20glass%20exterior%2C%20corporate%20architecture%2C%20and%20professional%20entrance&width=80&height=60&seq=9&orientation=landscape",
-    },
-    {
-      id: 10,
-      property: "Mountain View Villas",
-      user: { name: "Anjali Gupta", email: "anjali.gupta@example.com" },
-      date: "22/02/2025",
-      time: "1:45 PM",
-      image:
-        "https://readdy.ai/api/search-image?query=Luxury%20villa%20with%20mountain%20views%2C%20contemporary%20architecture%2C%20and%20private%20garden&width=80&height=60&seq=10&orientation=landscape",
-    },
-    {
-      id: 11,
-      property: "Riverside Apartments",
-      user: { name: "Rajesh Khanna", email: "rajesh.khanna@example.com" },
-      date: "14/03/2025",
-      time: "9:00 AM",
-      image:
-        "https://readdy.ai/api/search-image?query=Modern%20apartment%20complex%20by%20the%20river%2C%20with%20balconies%20and%20waterfront%20views&width=80&height=60&seq=11&orientation=landscape",
-    },
-    {
-      id: 12,
-      property: "Heritage Homes",
-      user: { name: "Sunita Verma", email: "sunita.verma@example.com" },
-      date: "30/01/2025",
-      time: "5:30 PM",
-      image:
-        "https://readdy.ai/api/search-image?query=Classic%20architecture%20home%20with%20heritage%20elements%2C%20elegant%20design%2C%20and%20landscaped%20garden&width=80&height=60&seq=12&orientation=landscape",
-    },
-  ];
-  
-  // Filter visits based on search query and date range
-  const filteredVisits = allVisits.filter((visit) => {
-    // Search filter
-    const searchLower = searchQuery.toLowerCase();
-    const matchesSearch = 
-      !searchQuery || 
-      visit.property.toLowerCase().includes(searchLower) ||
-      visit.user.name.toLowerCase().includes(searchLower) ||
-      visit.user.email.toLowerCase().includes(searchLower);
-    
-    // Date range filter
-    let matchesDateRange = true;
-    
-    if (startDate && endDate) {
-      // Convert date strings to Date objects for comparison
-      const visitDate = convertToDate(visit.date);
-      const startDateObj = new Date(startDate);
-      const endDateObj = new Date(endDate);
-      
-      // Set time to beginning/end of day for proper comparison
-      startDateObj.setHours(0, 0, 0, 0);
-      endDateObj.setHours(23, 59, 59, 999);
-      
-      matchesDateRange = visitDate >= startDateObj && visitDate <= endDateObj;
-    } else if (startDate) {
-      const visitDate = convertToDate(visit.date);
-      const startDateObj = new Date(startDate);
-      startDateObj.setHours(0, 0, 0, 0);
-      
-      matchesDateRange = visitDate >= startDateObj;
-    } else if (endDate) {
-      const visitDate = convertToDate(visit.date);
-      const endDateObj = new Date(endDate);
-      endDateObj.setHours(23, 59, 59, 999);
-      
-      matchesDateRange = visitDate <= endDateObj;
-    }
-    
-    return matchesSearch && matchesDateRange;
   });
-  
-  // Helper function to convert DD/MM/YYYY to Date object
-  function convertToDate(dateString: string): Date {
-    const [day, month, year] = dateString.split('/').map(Number);
-    return new Date(year, month - 1, day);
-  }
-  
+
+  // Delete visit mutation
+  const deleteVisitMutation = useMutation({
+    mutationFn: deleteVisitApi,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["visits"] });
+      setDeleteModalOpen(false);
+      setVisitToDelete(null);
+    },
+    onError: (error) => {
+      console.error("Failed to delete visit:", error);
+    },
+  });
+
+  // Send email confirmation mutation
+  const sendEmailMutation = useMutation({
+    mutationFn: sendVisitConfirmationApi,
+    onSuccess: (data) => {
+      console.log("Email confirmation result:", data);
+      alert("Visit confirmation email sent successfully!");
+    },
+    onError: (error) => {
+      console.error("Failed to send email:", error);
+      alert("Failed to send email. Please try again.");
+    },
+  });
+
+  // Helper function to format date
+  const formatDate = (date: Date | string): string => {
+    if (typeof date === 'string') {
+      return date;
+    }
+    return date.toLocaleDateString('en-GB');
+  };
+
+  // Helper function to format time
+  const formatTime = (time: string | undefined): string => {
+    if (!time) return 'Not specified';
+    return time;
+  };
+
+  // Handle delete click
+  const handleDeleteClick = (visit: Visit) => {
+    setVisitToDelete(visit);
+    setDeleteModalOpen(true);
+  };
+
+  // Handle delete confirmation
+  const handleDeleteConfirm = () => {
+    if (visitToDelete) {
+      deleteVisitMutation.mutate(visitToDelete.id);
+    }
+  };
+
+  // Handle send email confirmation
+  const handleSendEmail = (visit: Visit) => {
+    if (visit.userEmail && visit.userEmail.trim() !== '') {
+      sendEmailMutation.mutate(visit.id);
+    } else {
+      alert('No email address found for this visit');
+    }
+  };
+
   // Get current visits for pagination
   const indexOfLastVisit = currentPage * visitsPerPage;
   const indexOfFirstVisit = indexOfLastVisit - visitsPerPage;
-  const currentVisits = filteredVisits.slice(indexOfFirstVisit, indexOfLastVisit);
-  
+  const currentVisits = visits.slice(indexOfFirstVisit, indexOfLastVisit);
+
   // Calculate total pages
-  const totalPages = Math.ceil(filteredVisits.length / visitsPerPage);
-  
+  const totalPages = Math.ceil(visits.length / visitsPerPage);
+
   // Change page
   const paginate = (pageNumber: number) => setCurrentPage(pageNumber);
-  
+
   // Go to next page
   const nextPage = () => {
     if (currentPage < totalPages) {
       setCurrentPage(currentPage + 1);
     }
   };
-  
+
   // Go to previous page
   const prevPage = () => {
     if (currentPage > 1) {
@@ -199,259 +125,316 @@ const VisitsAndScheduling: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="container mx-auto px-4 py-8">
-        <h1 className="text-2xl font-bold text-gray-800 mb-6">
+    <main className="flex-1 p-5 transition-all duration-300">
+      {/* Header */}
+      <div className="hidden md:flex justify-between items-center mb-8">
+        <h2 className="text-2xl font-semibold text-gray-800">
           Visits & Scheduling
-        </h1>
+        </h2>
+      </div>
 
-        {/* Filters */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+      {/* Mobile Title */}
+      <h2 className="text-xl font-semibold text-gray-800 mb-6 md:hidden">
+        Visits & Scheduling
+      </h2>
+
+      {/* Search and Filter Controls */}
+      <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {/* Search Input */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="block text-sm font-medium text-gray-700 mb-2">
               Search
             </label>
-            <div className="relative">
-              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <i className="fas fa-search text-gray-400"></i>
-              </div>
-              <input
-                type="text"
-                className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                placeholder="Search by email, username or property..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-              />
-            </div>
+            <input
+              type="text"
+              placeholder="Search by property, user name, or email..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            />
           </div>
 
+          {/* Start Date */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Start Date
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              From Date
             </label>
-            <div className="relative">
-              <input
-                type="date"
-                className="block w-full px-2 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                placeholder="dd-mm-yyyy"
-                value={startDate}
-                onChange={(e) => setStartDate(e.target.value)}
-              />
-            </div>
+            <input
+              type="date"
+              value={startDate}
+              onChange={(e) => setStartDate(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            />
           </div>
 
+          {/* End Date */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              End Date
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              To Date
             </label>
-            <div className="relative">
-              <input
-                type="date"
-                className="block w-full px-2 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                placeholder="dd-mm-yyyy"
-                value={endDate}
-                onChange={(e) => setEndDate(e.target.value)}
-              />
-            </div>
+            <input
+              type="date"
+              value={endDate}
+              onChange={(e) => setEndDate(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            />
           </div>
         </div>
 
-        {/* Table */}
-        <div className="bg-white shadow overflow-hidden rounded-lg">
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th
-                    scope="col"
-                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-1/6"
-                  >
-                    PROPERTY
-                  </th>
-                  <th
-                    scope="col"
-                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-1/6"
-                  >
-                    USER INFO
-                  </th>
-                  <th
-                    scope="col"
-                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-1/6"
-                  >
-                    CONTACT
-                  </th>
-                  <th
-                    scope="col"
-                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-1/6"
-                  >
-                    DATE
-                  </th>
-                  <th
-                    scope="col"
-                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-1/6"
-                  >
-                    TIME
-                  </th>
-                  <th
-                    scope="col"
-                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-1/6"
-                  >
-                    ACTIONS
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {filteredVisits.length === 0 ? (
-                  <tr>
-                    <td colSpan={6} className="px-6 py-10 text-center text-gray-500">
-                      <i className="fas fa-search text-4xl mb-3"></i>
-                      <p className="text-lg">No visits found matching your filters</p>
-                      <p className="mt-1 text-sm">Try adjusting your search criteria</p>
-                    </td>
-                  </tr>
-                ) : (
-                  currentVisits.map((visit) => (
-                  <tr key={visit.id} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex items-center">
-                        <div className="flex-shrink-0 h-10 w-10 rounded overflow-hidden">
-                          <img
-                            className="h-10 w-10 object-cover"
-                            src={visit.image}
-                            alt={visit.property}
-                          />
-                        </div>
-                        <div className="ml-4">
-                          <div className="text-sm font-medium text-gray-900">
-                            {visit.property}
-                          </div>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex flex-col">
-                        <div className="flex items-center mb-1">
-                          <i className="far fa-user text-gray-400 mr-2"></i>
-                          <span className="text-sm text-gray-500">
-                            {visit.user.name || "-"}
-                          </span>
-                        </div>
-                        <div className="flex items-center">
-                          <i className="far fa-envelope text-gray-400 mr-2"></i>
-                          <span className="text-sm text-gray-500">
-                            {visit.user.email || "-"}
-                          </span>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex items-center">
-                        <i className="fas fa-phone text-gray-400"></i>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex items-center">
-                        <i className="far fa-calendar text-gray-400 mr-2"></i>
-                        <span className="text-sm text-gray-500">
-                          {visit.date}
-                        </span>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex items-center">
-                        <i className="far fa-clock text-gray-400 mr-2"></i>
-                        <span className="text-sm text-gray-500">
-                          {visit.time}
-                        </span>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                      <button className="text-red-500 hover:text-red-700 cursor-pointer !rounded-button whitespace-nowrap">
-                        <i className="far fa-trash-alt"></i>
-                      </button>
-                    </td>
-                  </tr>
-                )))}
-              </tbody>
-            </table>
+        {/* Clear Filters Button */}
+        {(searchQuery || startDate || endDate) && (
+          <div className="mt-4">
+            <button
+              onClick={() => {
+                setSearchQuery("");
+                setStartDate("");
+                setEndDate("");
+              }}
+              className="px-4 py-2 text-sm text-gray-600 bg-gray-100 rounded-md hover:bg-gray-200 transition-colors"
+            >
+              Clear Filters
+            </button>
           </div>
-          
-          {/* Pagination */}
-          {filteredVisits.length > 0 && (
-            <div className="flex justify-between items-center px-6 py-4 bg-white border-t border-gray-200">
-              <div className="text-sm text-gray-700">
-                Showing <span className="font-medium">{indexOfFirstVisit + 1}</span> to{" "}
-                <span className="font-medium">
-                  {Math.min(indexOfLastVisit, filteredVisits.length)}
-                </span>{" "}
-                of <span className="font-medium">{filteredVisits.length}</span> visits
-              </div>
-              
-              <nav className="flex items-center">
-                <button
-                  onClick={prevPage}
-                  disabled={currentPage === 1}
-                  className={`px-3 py-1 mx-1 rounded-md ${
-                    currentPage === 1
-                      ? "bg-gray-100 text-gray-400 cursor-not-allowed"
-                      : "bg-gray-200 text-gray-700 hover:bg-gray-300"
-                  }`}
-                >
-                  <i className="fas fa-chevron-left"></i>
-                </button>
-                
-                <div className="flex">
-                  {Array.from({ length: totalPages }, (_, i) => i + 1).map((number) => {
-                    // Show limited page numbers with ellipsis
-                    if (
-                      number === 1 ||
-                      number === totalPages ||
-                      (number >= currentPage - 1 && number <= currentPage + 1)
-                    ) {
-                      return (
-                        <button
-                          key={number}
-                          onClick={() => paginate(number)}
-                          className={`px-3 py-1 mx-1 rounded-md ${
-                            currentPage === number
-                              ? "bg-gray-900 text-white"
-                              : "bg-gray-200 text-gray-700 hover:bg-gray-300"
-                          }`}
-                        >
-                          {number}
-                        </button>
-                      );
-                    } else if (
-                      (number === currentPage - 2 && currentPage > 3) ||
-                      (number === currentPage + 2 && currentPage < totalPages - 2)
-                    ) {
-                      return (
-                        <span key={number} className="px-2 py-1 mx-1">
-                          ...
-                        </span>
-                      );
-                    }
-                    return null;
-                  })}
+        )}
+      </div>
+
+      {/* Loading State */}
+      {isLoading && (
+        <div className="flex flex-col items-center justify-center py-12">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-800"></div>
+          <p className="mt-4 text-gray-600">Loading visits...</p>
+        </div>
+      )}
+
+      {/* Error State */}
+      {isError && (
+        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded mb-6">
+          <p className="font-medium">Error loading visits</p>
+          <p className="text-sm">{(error as Error)?.message || "Please try again later"}</p>
+        </div>
+      )}
+
+      {/* Content */}
+      {!isLoading && !isError && (
+        <>
+          {/* Results Summary */}
+          <div className="bg-white rounded-lg shadow-sm p-4 mb-6">
+            <div className="flex justify-between items-center">
+              <p className="text-sm text-gray-600">
+                Showing {indexOfFirstVisit + 1}-{Math.min(indexOfLastVisit, visits.length)} of {visits.length} visits
+              </p>
+              <p className="text-sm text-gray-600">
+                Page {currentPage} of {totalPages}
+              </p>
+            </div>
+          </div>
+
+          {/* Visits List */}
+          <div className="bg-white rounded-lg shadow-sm overflow-hidden">
+            {currentVisits.length === 0 ? (
+              <div className="text-center py-12">
+                <div className="text-gray-400 text-6xl mb-4">
+                  <i className="fas fa-calendar-times"></i>
                 </div>
-                
+                <h3 className="text-lg font-medium text-gray-900 mb-2">No visits found</h3>
+                <p className="text-gray-500">
+                  {searchQuery || startDate || endDate
+                    ? "Try adjusting your search filters"
+                    : "No visits have been scheduled yet"}
+                </p>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                {/* Table Header */}
+                <div className="grid grid-cols-6 gap-6 px-6 py-4 bg-gray-50 border-b border-gray-200 text-sm font-medium text-gray-700 uppercase tracking-wider min-w-[900px]">
+                  <div className="min-w-[250px]">PROPERTY</div>
+                  <div className="min-w-[120px]">USER INFO</div>
+                  <div className="min-w-[150px]">CONTACT</div>
+                  <div className="min-w-[100px]">DATE</div>
+                  <div className="min-w-[80px]">TIME</div>
+                  <div className="min-w-[100px]">ACTIONS</div>
+                </div>
+
+                {/* Table Body */}
+                <div className="divide-y divide-gray-200">
+                  {currentVisits.map((visit) => (
+                    <div key={visit.id} className="grid grid-cols-6 gap-6 px-6 py-4 hover:bg-gray-50 transition-colors items-center min-w-[900px]">
+                      {/* Property Column */}
+                      <div className="flex items-center space-x-3 min-w-[250px]">
+                        <div className="w-16 h-16 rounded-lg overflow-hidden flex-shrink-0 bg-gray-100">
+                          {visit.propertyImage && visit.propertyImage.trim() !== '' ? (
+                            <img
+                              src={visit.propertyImage}
+                              alt={visit.propertyName || "Property"}
+                              className="w-full h-full object-cover"
+                              onError={(e) => {
+                                const target = e.target as HTMLImageElement;
+                                target.style.display = 'none';
+                                const parent = target.parentElement;
+                                if (parent && !parent.querySelector('.fallback-icon')) {
+                                  const fallback = document.createElement('div');
+                                  fallback.className = 'fallback-icon w-full h-full flex items-center justify-center bg-gray-100';
+                                  fallback.innerHTML = '<i class="fas fa-building text-gray-400 text-lg"></i>';
+                                  parent.appendChild(fallback);
+                                }
+                              }}
+                              onLoad={() => {
+                                console.log('Image loaded successfully:', visit.propertyImage?.substring(0, 50) + '...');
+                              }}
+                            />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center bg-gray-100">
+                              <i className="fas fa-building text-gray-400 text-lg"></i>
+                            </div>
+                          )}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <h3 className="font-medium text-gray-900 truncate">
+                            {visit.propertyName || "Unknown Property"}
+                          </h3>
+                          <p className="text-sm text-gray-500 truncate">
+                            {visit.propertyAddress || "Address not available"}
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* User Info Column */}
+                      <div className="flex items-center space-x-2">
+                        <i className="fas fa-user text-gray-400"></i>
+                        <span className="text-sm text-gray-900">
+                          {visit.userName || "Unknown User"}
+                        </span>
+                      </div>
+
+                      {/* Contact Column */}
+                      <div className="flex items-center space-x-2">
+                        <i className="fas fa-envelope text-gray-400"></i>
+                        <span className="text-sm text-gray-600 truncate max-w-32">
+                          {visit.userEmail || "No email"}
+                        </span>
+                      </div>
+
+                      {/* Date Column */}
+                      <div className="flex items-center space-x-2">
+                        <i className="fas fa-calendar text-gray-400"></i>
+                        <span className="text-sm text-gray-900">
+                          {formatDate(visit.date)}
+                        </span>
+                      </div>
+
+                      {/* Time Column */}
+                      <div className="flex items-center space-x-2">
+                        <i className="fas fa-clock text-gray-400"></i>
+                        <span className="text-sm text-gray-900">
+                          {formatTime(visit.time)}
+                        </span>
+                      </div>
+
+                      {/* Actions Column */}
+                      <div className="flex items-center space-x-2">
+                        {/* Send Email Button */}
+                        <button
+                          onClick={() => handleSendEmail(visit)}
+                          disabled={sendEmailMutation.isPending || !visit.userEmail || visit.userEmail.trim() === ''}
+                          className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                          title={visit.userEmail && visit.userEmail.trim() !== '' ? "Send visit confirmation email" : "No email address available"}
+                        >
+                          {sendEmailMutation.isPending ? (
+                            <i className="fas fa-spinner fa-spin"></i>
+                          ) : (
+                            <i className="fas fa-envelope"></i>
+                          )}
+                        </button>
+
+                        {/* Delete Button */}
+                        <button
+                          onClick={() => handleDeleteClick(visit)}
+                          disabled={deleteVisitMutation.isPending}
+                          className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50"
+                          title="Delete visit"
+                        >
+                          {deleteVisitMutation.isPending ? (
+                            <i className="fas fa-spinner fa-spin"></i>
+                          ) : (
+                            <i className="fas fa-trash"></i>
+                          )}
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Pagination */}
+          {totalPages > 1 && (
+            <div className="flex justify-center items-center mt-6 space-x-2">
+              <button
+                onClick={prevPage}
+                disabled={currentPage === 1}
+                className="px-3 py-1 text-sm bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Previous
+              </button>
+
+              {[...Array(totalPages)].map((_, index) => (
                 <button
-                  onClick={nextPage}
-                  disabled={currentPage === totalPages}
-                  className={`px-3 py-1 mx-1 rounded-md ${
-                    currentPage === totalPages
-                      ? "bg-gray-100 text-gray-400 cursor-not-allowed"
-                      : "bg-gray-200 text-gray-700 hover:bg-gray-300"
-                  }`}
+                  key={index + 1}
+                  onClick={() => paginate(index + 1)}
+                  className={`px-3 py-1 text-sm rounded-md ${currentPage === index + 1
+                    ? "bg-blue-500 text-white"
+                    : "bg-white border border-gray-300 hover:bg-gray-50"
+                    }`}
                 >
-                  <i className="fas fa-chevron-right"></i>
+                  {index + 1}
                 </button>
-              </nav>
+              ))}
+
+              <button
+                onClick={nextPage}
+                disabled={currentPage === totalPages}
+                className="px-3 py-1 text-sm bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Next
+              </button>
             </div>
           )}
+        </>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {deleteModalOpen && visitToDelete && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">
+              Delete Visit
+            </h3>
+            <p className="text-gray-600 mb-6">
+              Are you sure you want to delete the visit for "{visitToDelete.propertyName}"
+              scheduled by {visitToDelete.userName}? This action cannot be undone.
+            </p>
+            <div className="flex justify-end space-x-3">
+              <button
+                onClick={() => setDeleteModalOpen(false)}
+                disabled={deleteVisitMutation.isPending}
+                className="px-4 py-2 text-sm text-gray-600 bg-gray-100 rounded-md hover:bg-gray-200 disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleDeleteConfirm}
+                disabled={deleteVisitMutation.isPending}
+                className="px-4 py-2 text-sm text-white bg-red-600 rounded-md hover:bg-red-700 disabled:opacity-50"
+              >
+                {deleteVisitMutation.isPending ? "Deleting..." : "Delete"}
+              </button>
+            </div>
+          </div>
         </div>
-      </div>
-    </div>
+      )}
+    </main>
   );
 };
 

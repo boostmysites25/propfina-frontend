@@ -51,6 +51,23 @@ export interface UserFilters {
   loginType?: string;
 }
 
+export interface Visit {
+  id: string;
+  userName?: string;
+  userEmail?: string;
+  propertyName?: string;
+  propertyAddress?: string;
+  propertyImage?: string;
+  property_id?: string;
+  date: Date | string;
+  time?: string;
+  address?: string;
+  pNo?: string;
+  deleted?: boolean;
+  deletedAt?: Date;
+  createdAt?: Date | string;
+}
+
 export interface Property {
   id: string;
   projectName: string;
