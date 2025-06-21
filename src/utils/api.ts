@@ -267,7 +267,7 @@ export const saveBannerCustomizationApi = (data: {
   recommendedProperties: string[];
   recentProperties: string[];
 }) => {
-  return authApi.post('/customize/banner', data);
+  return authApi.post(`/customize/banner/${data.city}`, data);
 };
 
 export const getBannerCustomizationApi = (city: string) => {

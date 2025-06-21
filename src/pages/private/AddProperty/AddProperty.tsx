@@ -1,6 +1,6 @@
 import React, { useState, useRef } from "react";
 import { useForm, type SubmitHandler } from "react-hook-form";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { addPropertyApi } from "../../../utils/api";
 import { toast } from "react-hot-toast";
 import type { PropertyFormData } from "../../../utils/types";
@@ -8,6 +8,7 @@ import { handleApiError } from "../../../utils/errorHandler";
 import { uploadImage } from "../../../utils/uploadImage";
 
 const AddProperty: React.FC = () => {
+  const queryClient = useQueryClient();
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [bhkValue, setBhkValue] = useState<string>("");
@@ -16,6 +17,7 @@ const AddProperty: React.FC = () => {
   const [ownershipValue, setOwnershipValue] = useState<string>("Owner");
   const [leaseTypeValue, setLeaseTypeValue] = useState<string>("Non-Leased");
   const [formSubmitted, setFormSubmitted] = useState<boolean>(false);
+  const [isUploadingImages, setIsUploadingImages] = useState<boolean>(false);
 
   // React Hook Form setup
   const {
@@ -35,6 +37,7 @@ const AddProperty: React.FC = () => {
       possessionStatus: "Ready to Move",
       furnishedStatus: "Furnished",
       ageOfProperty: "0–1 year",
+      images: [],
     },
   });
 
@@ -56,8 +59,6 @@ const AddProperty: React.FC = () => {
   const mutation = useMutation({
     mutationFn: (data: PropertyFormData) => addPropertyApi(data),
     onSuccess: () => {
-      toast.success("Property added successfully!");
-      
       // Reset form values
       reset({
         intent: "Sell",
@@ -68,6 +69,7 @@ const AddProperty: React.FC = () => {
         possessionStatus: "Ready to Move",
         furnishedStatus: "Furnished",
         ageOfProperty: "0–1 year",
+        images: [],
       });
       
       // Reset dropdown values
@@ -97,69 +99,49 @@ const AddProperty: React.FC = () => {
     },
   });
 
-  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files) {
-      const filesArray = Array.from(e.target.files);
-      setSelectedFiles((prevFiles) => [...prevFiles, ...filesArray]);
-
-      // Upload files to Firebase and get URLs
-      try {
-        toast.loading("Uploading images...");
-        
-        const uploadPromises = filesArray.map(async (file) => {
-          const result = await uploadImage(file);
-          return result.url;
-        });
-        
-        const imageUrls = await Promise.all(uploadPromises);
-        
-        // Update form value with image URLs
-        setValue("images", [...(watch("images") || []), ...imageUrls]);
-        
-        toast.dismiss();
-        toast.success("Images uploaded successfully!");
-      } catch (error) {
-        console.error("Error uploading images to Firebase:", error);
-        toast.dismiss();
-        toast.error("Error uploading images. Please try again.");
-      }
+  // Upload all selected files to Firebase and return URLs
+  const uploadAllImages = async (files: File[]): Promise<string[]> => {
+    if (files.length === 0) return [];
+    
+    try {
+      setIsUploadingImages(true);
+      const uploadPromises = files.map(async (file) => {
+        const result = await uploadImage(file);
+        return result.url;
+      });
+      
+      return await Promise.all(uploadPromises);
+    } catch (error) {
+      console.error("Error uploading images to Firebase:", error);
+      throw new Error("Failed to upload images");
+    } finally {
+      setIsUploadingImages(false);
     }
   };
 
-  // We're now using Firebase storage instead of base64 encoding
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files) {
+      const filesArray = Array.from(e.target.files);
+      setSelectedFiles((prevFiles) => [...prevFiles, ...filesArray]);
+    }
+  };
 
   const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
   };
 
-  const handleDrop = async (e: React.DragEvent<HTMLDivElement>) => {
+  const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
     if (e.dataTransfer.files) {
       const filesArray = Array.from(e.dataTransfer.files);
       setSelectedFiles((prevFiles) => [...prevFiles, ...filesArray]);
-
-      // Upload files to Firebase and get URLs
-      try {
-        toast.loading("Uploading images...");
-        
-        const uploadPromises = filesArray.map(async (file) => {
-          const result = await uploadImage(file);
-          return result.url;
-        });
-        
-        const imageUrls = await Promise.all(uploadPromises);
-        
-        // Update form value with image URLs
-        setValue("images", [...(watch("images") || []), ...imageUrls]);
-        
-        toast.dismiss();
-        toast.success("Images uploaded successfully!");
-      } catch (error) {
-        console.error("Error uploading images to Firebase:", error);
-        toast.dismiss();
-        toast.error("Error uploading images. Please try again.");
-      }
     }
+  };
+
+  const handleRemoveFile = (indexToRemove: number) => {
+    setSelectedFiles((prevFiles) => 
+      prevFiles.filter((_, index) => index !== indexToRemove)
+    );
   };
 
   const handleClick = () => {
@@ -210,6 +192,22 @@ const AddProperty: React.FC = () => {
     }
     
     try {
+      // First upload all images
+      const uploadingToast = toast.loading("Uploading images...");
+      let imageUrls: string[] = [];
+      
+      if (selectedFiles.length > 0) {
+        try {
+          imageUrls = await uploadAllImages(selectedFiles);
+        } catch (error) {
+          toast.dismiss(uploadingToast);
+          toast.error("Failed to upload images. Please try again.");
+          return; // Stop form submission if image upload fails
+        }
+      }
+      
+      toast.dismiss(uploadingToast);
+      
       // Set dropdown values that might not be in the form
       data.bhk = bhkValue;
       data.bathrooms = bathroomsValue;
@@ -222,10 +220,19 @@ const AddProperty: React.FC = () => {
       data.builtUpArea = Number(data.builtUpArea);
       data.superBuiltUpArea = Number(data.superBuiltUpArea);
       data.carpetArea = Number(data.carpetArea);
+      
+      // Set the image URLs from our upload
+      data.images = imageUrls;
 
       // Submit to API
+      const creatingToast = toast.loading("Creating property...");
       await mutation.mutateAsync(data);
+      // Invalidate properties query to refresh the properties list
+      queryClient.invalidateQueries({ queryKey: ["properties"] });
+      toast.dismiss(creatingToast);
+      toast.success("Property added successfully!");
     } catch (error) {
+      toast.dismiss();
       console.log("Error submitting form:", error);
       handleApiError(error, "Failed to add property. Please try again.");
     }
@@ -276,12 +283,20 @@ const AddProperty: React.FC = () => {
           {selectedFiles.length > 0 && (
             <div className="mt-4 flex flex-wrap gap-2">
               {selectedFiles.map((file, index) => (
-                <div key={index} className="relative">
+                <div key={index} className="relative group">
                   <img
                     src={URL.createObjectURL(file)}
                     alt={`Preview ${index}`}
                     className="h-20 w-20 object-cover rounded-md"
                   />
+                  <button
+                    type="button"
+                    onClick={() => handleRemoveFile(index)}
+                    className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center shadow-md hover:bg-red-600 focus:outline-none"
+                    aria-label="Remove image"
+                  >
+                    <i className="fas fa-times text-xs"></i>
+                  </button>
                 </div>
               ))}
             </div>
@@ -926,9 +941,9 @@ const AddProperty: React.FC = () => {
             <button
               type="submit"
               className="flex items-center justify-center px-6 py-3 bg-black text-white font-medium rounded-md hover:bg-gray-800 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-              disabled={isSubmitting || !bhkValue || !bathroomsValue}
+              disabled={isSubmitting || isUploadingImages || !bhkValue || !bathroomsValue}
             >
-              {isSubmitting ? (
+              {isSubmitting || isUploadingImages ? (
                 <>
                   <svg
                     className="animate-spin -ml-1 mr-3 h-5 w-5 text-white"
@@ -950,7 +965,7 @@ const AddProperty: React.FC = () => {
                       d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
                     ></path>
                   </svg>
-                  Adding Property...
+                  {isUploadingImages ? "Uploading Images..." : "Adding Property..."}
                 </>
               ) : (
                 <>

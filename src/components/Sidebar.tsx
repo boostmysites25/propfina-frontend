@@ -46,7 +46,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggleSidebar }) => {
     <>
       {/* Overlay for mobile - shown when sidebar is open */}
       <div
-        className={`fixed inset-0 bg-black/30 bg-opacity-50 z-50 transition-opacity duration-300 ease-in-out md:hidden ${
+        className={`fixed inset-0 bg-black/30 bg-opacity-50 z-[99] transition-opacity duration-300 ease-in-out md:hidden ${
           isOpen ? "opacity-100" : "opacity-0 pointer-events-none"
         }`}
         onClick={toggleSidebar}
@@ -55,12 +55,12 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, toggleSidebar }) => {
 
       {/* Sidebar */}
       <aside
-        className={`fixed top-0 left-0 h-screen h-full bg-white shadow-sm z-[100] transition-transform duration-300 ease-in-out transform w-72 ${
+        className={`fixed top-0 left-0 h-screen bg-white shadow-sm z-[100] transition-transform duration-300 ease-in-out transform w-72 ${
           isOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"
         } md:static md:z-10 md:shadow-none`}
       >
         <div className="p-5 shadow-sm flex justify-between items-center">
-          <h1 className="text-xl font-bold text-gray-800">Propfina</h1>
+          <h1 className="text-xl font-bold text-gray-800">PropInfinia</h1>
           <button
             className="md:hidden text-gray-500 hover:text-gray-700 p-1"
             onClick={toggleSidebar}
