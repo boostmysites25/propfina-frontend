@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { useQuery, useMutation } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "react-hot-toast";
 import {
   getAllCitiesApi,
@@ -256,6 +256,7 @@ const PropertySection: React.FC<PropertySectionProps> = ({
 };
 
 const Banners: React.FC = () => {
+  const queryClient = useQueryClient();
   const [selectedCity, setSelectedCity] = useState<string>("");
   const [showCityModal, setShowCityModal] = useState(true);
   const [availableCities, setAvailableCities] = useState<string[]>([]);
@@ -324,12 +325,31 @@ const Banners: React.FC = () => {
   // Save banner customization mutation
   const saveBannerMutation = useMutation({
     mutationFn: saveBannerCustomizationApi,
-    onSuccess: () => {
+    onSuccess: (data, variables) => {
       toast.success("Banner customization saved successfully!");
-      // Set flag to prevent loading from backend
+      
+      // Invalidate the banner customization query to ensure fresh data on next fetch
+      queryClient.invalidateQueries({ 
+        queryKey: ["bannerCustomization", variables.city] 
+      });
+      
+      // Update the query cache with the new data to avoid refetching
+      queryClient.setQueryData(
+        ["bannerCustomization", variables.city],
+        {
+          data: {
+            data: {
+              city: variables.city,
+              featuredProperties: variables.featuredProperties,
+              recommendedProperties: variables.recommendedProperties,
+              recentProperties: variables.recentProperties
+            }
+          }
+        }
+      );
+      
+      // Set flag to prevent immediate loading from backend
       setHasUserInteracted(true);
-      // Don't refetch to avoid overriding current state - the save was successful
-      // bannerCustomizationQuery.refetch();
     },
     onError: (error: any) => {
       toast.error(
@@ -360,16 +380,44 @@ const Banners: React.FC = () => {
       city: string;
       data: { image: string; title: string };
     }) => uploadHeroBannerApi(city, data),
-    onSuccess: () => {
+    onSuccess: (response, variables) => {
       toast.success("Hero banner updated successfully!");
       setShowHeroBannerModal(false);
+      
       // Clean up file states
       setSelectedFile(null);
       if (previewUrl && previewUrl.startsWith("blob:")) {
         URL.revokeObjectURL(previewUrl);
       }
       setPreviewUrl("");
-      heroBannerQuery.refetch();
+      
+      // Invalidate the hero banner query to ensure fresh data on next fetch
+      queryClient.invalidateQueries({ 
+        queryKey: ["heroBanner", variables.city] 
+      });
+      
+      // Update the query cache with the new data
+      queryClient.setQueryData(
+        ["heroBanner", variables.city],
+        {
+          data: {
+            id: response?.data?.id || new Date().getTime().toString(),
+            city: variables.city,
+            image: variables.data.image,
+            title: variables.data.title,
+            updatedAt: new Date()
+          }
+        }
+      );
+      
+      // Update the local state
+      setHeroBanner({
+        id: response?.data?.id || new Date().getTime().toString(),
+        city: variables.city,
+        image: variables.data.image,
+        title: variables.data.title,
+        updatedAt: new Date()
+      });
     },
     onError: (error) => {
       console.error("Error uploading hero banner:", error);
@@ -1140,13 +1188,18 @@ const Banners: React.FC = () => {
 
             <button
               onClick={handleSaveBannerCustomization}
-              disabled={saveBannerMutation.isPending}
+              disabled={saveBannerMutation.isPending || bannerCustomizationQuery.isLoading}
               className="bg-blue-600 text-white px-4 py-2 rounded-md flex items-center gap-2 hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {saveBannerMutation.isPending ? (
                 <>
                   <i className="fas fa-spinner fa-spin"></i>
                   Saving...
+                </>
+              ) : bannerCustomizationQuery.isLoading ? (
+                <>
+                  <i className="fas fa-spinner fa-spin"></i>
+                  Loading...
                 </>
               ) : (
                 <>
@@ -1166,15 +1219,34 @@ const Banners: React.FC = () => {
             </h2>
             <button
               onClick={handleHeroBannerEdit}
-              className="bg-gray-900 text-white px-4 py-2 rounded-md flex items-center gap-2 hover:bg-gray-800 transition-colors"
+              disabled={heroBannerQuery.isLoading}
+              className={`${
+                heroBannerQuery.isLoading 
+                  ? "bg-gray-400 cursor-not-allowed" 
+                  : "bg-gray-900 hover:bg-gray-800"
+              } text-white px-4 py-2 rounded-md flex items-center gap-2 transition-colors`}
             >
-              <i className={`fas ${heroBanner ? "fa-pen" : "fa-plus"}`}></i>
-              {heroBanner ? "Edit Banner" : "Add Hero Banner"}
+              {heroBannerQuery.isLoading ? (
+                <>
+                  <div className="animate-spin h-4 w-4 border-t-2 border-b-2 border-white rounded-full mr-2"></div>
+                  Loading...
+                </>
+              ) : (
+                <>
+                  <i className={`fas ${heroBanner ? "fa-pen" : "fa-plus"}`}></i>
+                  {heroBanner ? "Edit Banner" : "Add Hero Banner"}
+                </>
+              )}
             </button>
           </div>
 
           <div className="space-y-8">
-            {heroBanner ? (
+            {heroBannerQuery.isLoading ? (
+              <div className="flex flex-col items-center justify-center py-20 bg-gray-50 rounded-lg border-2 border-dashed border-gray-300">
+                <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-gray-900 mb-4"></div>
+                <p className="text-gray-500">Loading banner data...</p>
+              </div>
+            ) : heroBanner ? (
               <div className="relative rounded-lg overflow-hidden bg-gray-50 shadow-sm">
                 <div
                   className="relative group"
@@ -1242,42 +1314,53 @@ const Banners: React.FC = () => {
         </div>
 
         {/* Property Sections */}
-        <PropertySection
-          title="Featured Properties"
-          properties={featuredProperties}
-          selectedCity={selectedCity}
-          onAddProperty={() => handleAddProperty("featured")}
-          onRemoveProperty={(propertyId) =>
-            handleRemoveProperty(propertyId, "featured")
-          }
-          onRemoveMultiple={(propertyIds) =>
-            handleRemoveMultiple(propertyIds, "featured")
-          }
-        />
-        <PropertySection
-          title="Recommended Properties"
-          properties={recommendedProperties}
-          selectedCity={selectedCity}
-          onAddProperty={() => handleAddProperty("recommended")}
-          onRemoveProperty={(propertyId) =>
-            handleRemoveProperty(propertyId, "recommended")
-          }
-          onRemoveMultiple={(propertyIds) =>
-            handleRemoveMultiple(propertyIds, "recommended")
-          }
-        />
-        <PropertySection
-          title="Recently Added Properties"
-          properties={recentProperties}
-          selectedCity={selectedCity}
-          onAddProperty={() => handleAddProperty("recent")}
-          onRemoveProperty={(propertyId) =>
-            handleRemoveProperty(propertyId, "recent")
-          }
-          onRemoveMultiple={(propertyIds) =>
-            handleRemoveMultiple(propertyIds, "recent")
-          }
-        />
+        {bannerCustomizationQuery.isLoading ? (
+          <div className="space-y-8">
+            <div className="flex flex-col items-center justify-center py-20 bg-gray-50 rounded-lg border-2 border-dashed border-gray-300">
+              <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-gray-900 mb-4"></div>
+              <p className="text-gray-500">Loading banner customization data...</p>
+            </div>
+          </div>
+        ) : (
+          <>
+            <PropertySection
+              title="Featured Properties"
+              properties={featuredProperties}
+              selectedCity={selectedCity}
+              onAddProperty={() => handleAddProperty("featured")}
+              onRemoveProperty={(propertyId) =>
+                handleRemoveProperty(propertyId, "featured")
+              }
+              onRemoveMultiple={(propertyIds) =>
+                handleRemoveMultiple(propertyIds, "featured")
+              }
+            />
+            <PropertySection
+              title="Recommended Properties"
+              properties={recommendedProperties}
+              selectedCity={selectedCity}
+              onAddProperty={() => handleAddProperty("recommended")}
+              onRemoveProperty={(propertyId) =>
+                handleRemoveProperty(propertyId, "recommended")
+              }
+              onRemoveMultiple={(propertyIds) =>
+                handleRemoveMultiple(propertyIds, "recommended")
+              }
+            />
+            <PropertySection
+              title="Recently Added Properties"
+              properties={recentProperties}
+              selectedCity={selectedCity}
+              onAddProperty={() => handleAddProperty("recent")}
+              onRemoveProperty={(propertyId) =>
+                handleRemoveProperty(propertyId, "recent")
+              }
+              onRemoveMultiple={(propertyIds) =>
+                handleRemoveMultiple(propertyIds, "recent")
+              }
+            />
+          </>
+        )}
       </div>
 
       {/* Property Selection Modal */}

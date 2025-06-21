@@ -1,7 +1,11 @@
 import React, { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { updatePasswordApi, addPhoneNumberApi, getUserProfileApi } from "../../../utils/api";
+import {
+  updatePasswordApi,
+  addPhoneNumberApi,
+  getUserProfileApi,
+} from "../../../utils/api";
 import { toast } from "react-hot-toast";
 import { handleApiError } from "../../../utils/errorHandler";
 import PhoneInput from "../../../components/PhoneInput";
@@ -17,16 +21,17 @@ type PhoneFormData = {
 };
 
 const Settings: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<'password' | 'phone'>('password');
+  const [activeTab, setActiveTab] = useState<"password" | "phone">("password");
   const [showCurrentPassword, setShowCurrentPassword] = useState(false);
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  const [phoneNumber, setPhoneNumber] = useState('');
+  const [phoneNumber, setPhoneNumber] = useState("");
+  const [isUpdated, setIsUpdated] = useState(false);
 
   // Fetch user profile to get existing phone number
   const { data: userProfile, isLoading: isProfileLoading } = useQuery({
-    queryKey: ['userProfile'],
-    queryFn: () => getUserProfileApi().then(res => res.data),
+    queryKey: ["userProfile"],
+    queryFn: () => getUserProfileApi().then((res) => res.data),
   });
 
   // Update phone number when profile loads
@@ -50,10 +55,9 @@ const Settings: React.FC = () => {
     },
   });
 
-  const {
-    handleSubmit: handleSubmitPhone,
-    reset: resetPhone,
-  } = useForm<{}>({});
+  const { handleSubmit: handleSubmitPhone, reset: resetPhone } = useForm<{}>(
+    {}
+  );
 
   // Watch the new password for validation
   const newPassword = watch("newPassword");
@@ -77,6 +81,7 @@ const Settings: React.FC = () => {
       toast.success(data.data.message || "Phone number added successfully");
       // Don't clear the phone number on success, keep it displayed
       resetPhone();
+      setIsUpdated(true);
     },
     onError: (error) => {
       handleApiError(error);
@@ -94,7 +99,9 @@ const Settings: React.FC = () => {
     }
 
     // Ensure phone number has + prefix
-    const formattedPhone = phoneNumber.startsWith('+') ? phoneNumber : `+${phoneNumber}`;
+    const formattedPhone = phoneNumber.startsWith("+")
+      ? phoneNumber
+      : `+${phoneNumber}`;
     addPhone({ phoneNumber: formattedPhone });
   };
 
@@ -103,36 +110,36 @@ const Settings: React.FC = () => {
       <div className="w-full max-w-md rounded-lg shadow-lg bg-white p-8">
         <div className="mb-6">
           <h1 className="text-2xl font-semibold text-gray-900">Settings</h1>
-          <p className="text-sm text-gray-500">
-            Update your account settings
-          </p>
+          <p className="text-sm text-gray-500">Update your account settings</p>
         </div>
 
         {/* Tab Navigation */}
         <div className="flex bg-gray-100 rounded-lg p-1 mb-6">
           <button
-            onClick={() => setActiveTab('password')}
-            className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-colors ${activeTab === 'password'
-              ? 'bg-white text-gray-900 shadow-sm'
-              : 'text-gray-500 hover:text-gray-700'
-              }`}
+            onClick={() => setActiveTab("password")}
+            className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-colors ${
+              activeTab === "password"
+                ? "bg-white text-gray-900 shadow-sm"
+                : "text-gray-500 hover:text-gray-700"
+            }`}
           >
             <i className="fas fa-lock mr-2"></i>
             Password
           </button>
           <button
-            onClick={() => setActiveTab('phone')}
-            className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-colors ${activeTab === 'phone'
-              ? 'bg-white text-gray-900 shadow-sm'
-              : 'text-gray-500 hover:text-gray-700'
-              }`}
+            onClick={() => setActiveTab("phone")}
+            className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-colors ${
+              activeTab === "phone"
+                ? "bg-white text-gray-900 shadow-sm"
+                : "text-gray-500 hover:text-gray-700"
+            }`}
           >
             <i className="fas fa-phone mr-2"></i>
             Phone
           </button>
         </div>
 
-        {activeTab === 'password' ? (
+        {activeTab === "password" ? (
           <form onSubmit={handleSubmit(onSubmitPassword)} className="space-y-6">
             <div>
               <label
@@ -145,8 +152,11 @@ const Settings: React.FC = () => {
                 <input
                   id="current-password"
                   type={showCurrentPassword ? "text" : "password"}
-                  className={`w-full px-4 py-3 border ${errors.currentPassword ? "border-red-300" : "border-gray-300"
-                    } rounded-lg outline-none`}
+                  className={`w-full px-4 py-3 border ${
+                    errors.currentPassword
+                      ? "border-red-300"
+                      : "border-gray-300"
+                  } rounded-lg outline-none`}
                   placeholder="Enter your current password"
                   {...register("currentPassword", {
                     required: "Current password is required",
@@ -160,7 +170,9 @@ const Settings: React.FC = () => {
                   disabled={isPasswordLoading}
                 >
                   <i
-                    className={`fas ${showCurrentPassword ? "fa-eye-slash" : "fa-eye"}`}
+                    className={`fas ${
+                      showCurrentPassword ? "fa-eye-slash" : "fa-eye"
+                    }`}
                   ></i>
                 </button>
               </div>
@@ -182,8 +194,9 @@ const Settings: React.FC = () => {
                 <input
                   id="new-password"
                   type={showNewPassword ? "text" : "password"}
-                  className={`w-full px-4 py-3 border ${errors.newPassword ? "border-red-300" : "border-gray-300"
-                    } rounded-lg outline-none`}
+                  className={`w-full px-4 py-3 border ${
+                    errors.newPassword ? "border-red-300" : "border-gray-300"
+                  } rounded-lg outline-none`}
                   placeholder="Enter your new password"
                   {...register("newPassword", {
                     required: "New password is required",
@@ -192,8 +205,10 @@ const Settings: React.FC = () => {
                       message: "Password must be at least 8 characters",
                     },
                     pattern: {
-                      value: /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/,
-                      message: "Password must contain at least one uppercase letter, one lowercase letter, one number, and one special character",
+                      value:
+                        /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/,
+                      message:
+                        "Password must contain at least one uppercase letter, one lowercase letter, one number, and one special character",
                     },
                   })}
                   disabled={isPasswordLoading}
@@ -205,7 +220,9 @@ const Settings: React.FC = () => {
                   disabled={isPasswordLoading}
                 >
                   <i
-                    className={`fas ${showNewPassword ? "fa-eye-slash" : "fa-eye"}`}
+                    className={`fas ${
+                      showNewPassword ? "fa-eye-slash" : "fa-eye"
+                    }`}
                   ></i>
                 </button>
               </div>
@@ -227,8 +244,11 @@ const Settings: React.FC = () => {
                 <input
                   id="confirm-password"
                   type={showConfirmPassword ? "text" : "password"}
-                  className={`w-full px-4 py-3 border ${errors.confirmPassword ? "border-red-300" : "border-gray-300"
-                    } rounded-lg outline-none`}
+                  className={`w-full px-4 py-3 border ${
+                    errors.confirmPassword
+                      ? "border-red-300"
+                      : "border-gray-300"
+                  } rounded-lg outline-none`}
                   placeholder="Confirm your new password"
                   {...register("confirmPassword", {
                     required: "Please confirm your password",
@@ -244,7 +264,9 @@ const Settings: React.FC = () => {
                   disabled={isPasswordLoading}
                 >
                   <i
-                    className={`fas ${showConfirmPassword ? "fa-eye-slash" : "fa-eye"}`}
+                    className={`fas ${
+                      showConfirmPassword ? "fa-eye-slash" : "fa-eye"
+                    }`}
                   ></i>
                 </button>
               </div>
@@ -320,15 +342,23 @@ const Settings: React.FC = () => {
               </div>
             ) : (
               <>
-                {userProfile?.phone && (
+                {userProfile?.phone && !isUpdated ? (
                   <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-4">
                     <div className="flex items-center">
                       <i className="fas fa-check-circle text-green-500 mr-2"></i>
-                      <span className="text-green-700 font-medium">Current Phone Number:</span>
+                      <span className="text-green-700 font-medium">
+                        Current Phone Number:
+                      </span>
                     </div>
-                    <p className="text-green-600 mt-1 font-mono">{userProfile.phone}</p>
-                    <p className="text-green-600 text-sm mt-1">You can update your phone number below.</p>
+                    <p className="text-green-600 mt-1 font-mono">
+                      {userProfile.phone}
+                    </p>
+                    <p className="text-green-600 text-sm mt-1">
+                      You can update your phone number below.
+                    </p>
                   </div>
+                ) : (
+                  ""
                 )}
 
                 <PhoneInput
@@ -336,7 +366,11 @@ const Settings: React.FC = () => {
                   onChange={(phone) => setPhoneNumber(phone)}
                   placeholder="Enter phone number"
                   disabled={isPhoneLoading}
-                  label={userProfile?.phone ? "Update Phone Number" : "Add Phone Number"}
+                  label={
+                    userProfile?.phone
+                      ? "Update Phone Number"
+                      : "Add Phone Number"
+                  }
                   required
                 />
 
@@ -368,12 +402,18 @@ const Settings: React.FC = () => {
                           d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
                         ></path>
                       </svg>
-                      <span>{userProfile?.phone ? 'Updating...' : 'Adding...'}</span>
+                      <span>
+                        {userProfile?.phone ? "Updating..." : "Adding..."}
+                      </span>
                     </>
                   ) : (
                     <>
                       <i className="fas fa-phone text-sm"></i>
-                      <span>{userProfile?.phone ? 'Update Phone Number' : 'Add Phone Number'}</span>
+                      <span>
+                        {userProfile?.phone
+                          ? "Update Phone Number"
+                          : "Add Phone Number"}
+                      </span>
                     </>
                   )}
                 </button>
