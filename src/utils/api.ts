@@ -267,11 +267,15 @@ export const saveBannerCustomizationApi = (data: {
   recommendedProperties: string[];
   recentProperties: string[];
 }) => {
-  return authApi.post(`/customize/banner/${data.city}`, data);
+  return authApi.post(`/customize/banner`, data);
 };
 
 export const getBannerCustomizationApi = (city: string) => {
   return authApi.get(`/customize/banner/${city}`);
+};
+
+export const deleteBannerCustomizationApi = (city: string) => {
+  return authApi.delete(`/customize/banner/${city}`);
 };
 
 // Hero Banner Management APIs
@@ -281,6 +285,10 @@ export const uploadHeroBannerApi = (city: string, data: { image: string; title: 
 
 export const getHeroBannerApi = (city: string) => {
   return api.get(`/customize/banner?city=${city}`);
+};
+
+export const deleteHeroBannerApi = (city: string) => {
+  return authApi.delete(`/customize/hero-banner/${city}`);
 };
 
 // Initialize Firebase collections

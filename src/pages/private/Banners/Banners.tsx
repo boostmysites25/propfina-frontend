@@ -8,6 +8,7 @@ import {
   getBannerCustomizationApi,
   uploadHeroBannerApi,
   getHeroBannerApi,
+  deleteHeroBannerApi,
   initializeCollectionsApi,
 } from "../../../utils/api";
 import { uploadImage } from "../../../utils/uploadImage";
@@ -24,11 +25,11 @@ interface Property {
   location?: string;
   locality: string;
   createdAt:
-    | {
-        _seconds: number;
-        _nanoseconds: number;
-      }
-    | string;
+  | {
+    _seconds: number;
+    _nanoseconds: number;
+  }
+  | string;
   images?: string[];
   photos?: string[];
   buildingType: string;
@@ -141,25 +142,24 @@ const PropertySection: React.FC<PropertySectionProps> = ({
             property.images && property.images.length > 0
               ? property.images[0]
               : property.photos && property.photos.length > 0
-              ? property.photos[0]
-              : null;
+                ? property.photos[0]
+                : null;
 
           // Format the creation date
           const createdDate =
             typeof property.createdAt === "string"
               ? new Date(property.createdAt)
               : property.createdAt._seconds
-              ? new Date(property.createdAt._seconds * 1000)
-              : new Date();
+                ? new Date(property.createdAt._seconds * 1000)
+                : new Date();
 
           return (
             <div
               key={property.id || property._id}
-              className={`bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow relative ${
-                selectedForRemoval.includes(property.id || property._id)
-                  ? "ring-2 ring-red-500"
-                  : ""
-              }`}
+              className={`bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow relative ${selectedForRemoval.includes(property.id || property._id)
+                ? "ring-2 ring-red-500"
+                : ""
+                }`}
             >
               <div className="absolute top-2 right-2 z-10">
                 <input
@@ -217,15 +217,11 @@ const PropertySection: React.FC<PropertySectionProps> = ({
                   </span>
                 </div>
                 <div className="flex gap-2">
-                  <button className="flex-1 py-2 px-3 bg-gray-100 text-gray-700 rounded-md text-sm hover:bg-gray-200 transition-colors">
-                    <i className="fas fa-edit mr-1"></i>
-                    Edit
-                  </button>
                   <button
                     onClick={() =>
                       onRemoveProperty(property.id || property._id)
                     }
-                    className="flex-1 py-2 px-3 bg-red-50 text-red-600 rounded-md text-sm hover:bg-red-100 transition-colors"
+                    className="w-full py-2 px-3 bg-red-50 text-red-600 rounded-md text-sm hover:bg-red-100 transition-colors"
                   >
                     <i className="fas fa-trash mr-1"></i>
                     Remove
@@ -276,6 +272,9 @@ const Banners: React.FC = () => {
   >([]);
   const [recentProperties, setRecentProperties] = useState<Property[]>([]);
 
+  // Flag to prevent loading from backend after any user action
+  const [hasUserInteracted, setHasUserInteracted] = useState(false);
+
   // Multi-select state for property modal
   const [selectedPropertyIds, setSelectedPropertyIds] = useState<string[]>([]);
   const [selectAll, setSelectAll] = useState(false);
@@ -315,6 +314,11 @@ const Banners: React.FC = () => {
     enabled: !!selectedCity,
     retry: false, // Don't retry if no customization exists (404 is expected)
     retryOnMount: false,
+    refetchOnMount: false, // Don't refetch when component mounts
+    refetchOnWindowFocus: false, // Don't refetch when window gains focus
+    refetchOnReconnect: false, // Don't refetch when network reconnects
+    staleTime: Infinity, // Consider data always fresh
+    gcTime: Infinity, // Keep in cache forever
   });
 
   // Save banner customization mutation
@@ -322,12 +326,14 @@ const Banners: React.FC = () => {
     mutationFn: saveBannerCustomizationApi,
     onSuccess: () => {
       toast.success("Banner customization saved successfully!");
-      bannerCustomizationQuery.refetch();
+      // Set flag to prevent loading from backend
+      setHasUserInteracted(true);
+      // Don't refetch to avoid overriding current state - the save was successful
+      // bannerCustomizationQuery.refetch();
     },
     onError: (error: any) => {
       toast.error(
-        `Failed to save banner customization: ${
-          error.response?.status || "Unknown error"
+        `Failed to save banner customization: ${error.response?.status || "Unknown error"
         }`
       );
     },
@@ -337,8 +343,13 @@ const Banners: React.FC = () => {
   const heroBannerQuery = useQuery({
     queryKey: ["heroBanner", selectedCity],
     queryFn: () => getHeroBannerApi(selectedCity),
-    enabled: !!selectedCity,
+    enabled: !!selectedCity && !hasUserInteracted,
     retry: 1,
+    refetchOnMount: false,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
+    staleTime: Infinity,
+    gcTime: Infinity,
   });
 
   const uploadHeroBannerMutation = useMutation({
@@ -374,8 +385,7 @@ const Banners: React.FC = () => {
     },
     onError: (error: any) => {
       toast.error(
-        `Failed to initialize collections: ${
-          error.response?.status || "Unknown error"
+        `Failed to initialize collections: ${error.response?.status || "Unknown error"
         }`
       );
     },
@@ -402,19 +412,27 @@ const Banners: React.FC = () => {
 
   // Load saved banner customization when city changes
   useEffect(() => {
-    console.log("Banner customization query status:", {
+    console.log("🔄 Frontend: useEffect triggered - Banner customization query status:", {
       isLoading: bannerCustomizationQuery.isLoading,
       isError: bannerCustomizationQuery.isError,
-      data: bannerCustomizationQuery.data,
-      error: bannerCustomizationQuery.error,
+      hasData: !!bannerCustomizationQuery.data,
+      dataPath: bannerCustomizationQuery.data?.data?.data ? "EXISTS" : "MISSING",
+      error: bannerCustomizationQuery.error?.message,
+      hasUserInteracted: hasUserInteracted,
     });
-    console.log("City properties count:", cityProperties.length);
+    console.log("🏘️ Frontend: City properties count:", cityProperties.length);
+
+    // Don't load from backend if user has interacted (to prevent overriding local changes)
+    if (hasUserInteracted) {
+      console.log("🚫 Frontend: Skipping backend load - user has made changes");
+      return;
+    }
 
     // Only process if we have city properties and the query is not loading
     if (cityProperties.length > 0 && !bannerCustomizationQuery.isLoading) {
       if (bannerCustomizationQuery.data?.data?.data) {
         const savedCustomization = bannerCustomizationQuery.data.data.data;
-        console.log("Loading saved customization:", savedCustomization);
+        console.log("📥 Frontend: Loading saved customization from backend:", savedCustomization);
 
         // Debug: Log the saved property IDs vs available property IDs
         console.log("🔍 Saved property IDs:", {
@@ -483,30 +501,43 @@ const Banners: React.FC = () => {
           filteredRecent,
         });
 
+        console.log("🔄 Frontend: Setting properties from backend data:", {
+          featured: filteredFeatured.length,
+          recommended: filteredRecommended.length,
+          recent: filteredRecent.length,
+        });
+
         setFeaturedProperties(filteredFeatured);
         setRecommendedProperties(filteredRecommended);
         setRecentProperties(filteredRecent);
       } else {
         // No saved customization found - this is normal for new cities
         // Arrays are already cleared in handleCitySelect, so no need to do anything
-        console.log("No saved customization found for city:", selectedCity);
+        console.log("❌ Frontend: No saved customization found for city:", selectedCity);
       }
     }
   }, [
-    bannerCustomizationQuery.data,
+    // Removed bannerCustomizationQuery.data to prevent useEffect from triggering when query data changes
+    // This prevents the old data from overriding our local state after a successful save
     bannerCustomizationQuery.isLoading,
     cityProperties,
     selectedCity,
+    hasUserInteracted,
   ]);
 
-  // Load hero banner when city changes
+  // Load hero banner when city changes (only if user hasn't interacted)
   useEffect(() => {
+    if (hasUserInteracted) {
+      console.log("🚫 Frontend: Skipping hero banner load - user has interacted");
+      return;
+    }
+
     if (heroBannerQuery.data?.data) {
       setHeroBanner(heroBannerQuery.data.data);
     } else {
       setHeroBanner(null);
     }
-  }, [heroBannerQuery.data]);
+  }, [heroBannerQuery.data, hasUserInteracted]);
 
   // Handle cities API error
   useEffect(() => {
@@ -532,6 +563,10 @@ const Banners: React.FC = () => {
     setFeaturedProperties([]);
     setRecommendedProperties([]);
     setRecentProperties([]);
+    // Clear hero banner state
+    setHeroBanner(null);
+    // Reset interaction flag when changing cities
+    setHasUserInteracted(false);
   };
 
   const handleChangeCityClick = () => {
@@ -563,8 +598,8 @@ const Banners: React.FC = () => {
       prev.includes(propertyId)
         ? prev.filter((id) => id !== propertyId)
         : prev.length < 10
-        ? [...prev, propertyId]
-        : prev
+          ? [...prev, propertyId]
+          : prev
     );
   };
 
@@ -579,8 +614,8 @@ const Banners: React.FC = () => {
             modalType === "featured"
               ? featuredProperties
               : modalType === "recommended"
-              ? recommendedProperties
-              : recentProperties;
+                ? recommendedProperties
+                : recentProperties;
           return !currentProps.find(
             (existing) => (existing.id || existing._id) === (p.id || p._id)
           );
@@ -594,6 +629,9 @@ const Banners: React.FC = () => {
 
   // Handle adding selected properties
   const handleAddSelectedProperties = () => {
+    // Mark that user has interacted to prevent backend reload
+    setHasUserInteracted(true);
+
     const propertiesToAdd = cityProperties.filter((p) =>
       selectedPropertyIds.includes(p.id || p._id)
     );
@@ -634,6 +672,9 @@ const Banners: React.FC = () => {
     propertyId: string,
     section: "featured" | "recommended" | "recent"
   ) => {
+    // Mark that user has interacted to prevent backend reload
+    setHasUserInteracted(true);
+
     switch (section) {
       case "featured":
         setFeaturedProperties(
@@ -658,6 +699,9 @@ const Banners: React.FC = () => {
     propertyIds: string[],
     section: "featured" | "recommended" | "recent"
   ) => {
+    // Mark that user has interacted to prevent backend reload
+    setHasUserInteracted(true);
+
     switch (section) {
       case "featured":
         setFeaturedProperties(
@@ -690,37 +734,11 @@ const Banners: React.FC = () => {
       recommendedProperties: recommendedProperties.map((p) => p.id || p._id),
       recentProperties: recentProperties.map((p) => p.id || p._id),
     };
-    console.log("🚀 Saving banner customization data:", data);
-    console.log("📋 Current state before save:", {
-      featured: featuredProperties.length,
-      recommended: recommendedProperties.length,
-      recent: recentProperties.length,
-    });
-    console.log("🔍 Property objects being saved:");
-    console.log(
-      "Featured properties:",
-      featuredProperties.map((p) => ({
-        id: p.id,
-        _id: p._id,
-        name: p.projectName,
-      }))
-    );
-    console.log(
-      "Recommended properties:",
-      recommendedProperties.map((p) => ({
-        id: p.id,
-        _id: p._id,
-        name: p.projectName,
-      }))
-    );
-    console.log(
-      "Recent properties:",
-      recentProperties.map((p) => ({
-        id: p.id,
-        _id: p._id,
-        name: p.projectName,
-      }))
-    );
+    console.log("🚀 Frontend: Saving banner customization for", selectedCity, "with", {
+      featured: data.featuredProperties.length,
+      recommended: data.recommendedProperties.length,
+      recent: data.recentProperties.length,
+    }, "properties");
     saveBannerMutation.mutate(data);
   };
 
@@ -812,11 +830,47 @@ const Banners: React.FC = () => {
     });
   };
 
+  // Delete hero banner mutation
+  const deleteHeroBannerMutation = useMutation({
+    mutationFn: (city: string) => deleteHeroBannerApi(city),
+    onSuccess: () => {
+      console.log("✅ Frontend: Hero banner deleted successfully");
+      setHeroBanner(null);
+      // Don't refetch to avoid reloading data
+      // heroBannerQuery.refetch(); // Update the query cache
+      toast.success("Hero banner deleted successfully!");
+    },
+    onError: (error: any) => {
+      console.error("❌ Frontend: Hero banner delete error:", error);
+      console.error("❌ Error details:", {
+        status: error.response?.status,
+        statusText: error.response?.statusText,
+        data: error.response?.data,
+        message: error.message
+      });
+
+      if (error.response?.status === 404) {
+        toast.error("Hero banner not found - it may have already been deleted");
+        setHeroBanner(null); // Clear from UI anyway
+      } else {
+        toast.error(error.response?.data?.message || "Failed to delete hero banner");
+      }
+    }
+  });
+
   const handleHeroBannerDelete = () => {
-    // For now, we'll just clear the banner data
-    // You might want to add a proper delete endpoint in the backend
-    setHeroBanner(null);
-    toast.success("Hero banner removed");
+    console.log("🗑️ Frontend: Deleting hero banner for", selectedCity);
+    console.log("🔍 Frontend: Current hero banner state:", heroBanner);
+
+    // Mark that user has interacted to prevent backend reload
+    setHasUserInteracted(true);
+
+    if (!heroBanner) {
+      toast.info("No hero banner to delete");
+      return;
+    }
+
+    deleteHeroBannerMutation.mutate(selectedCity);
   };
 
   // City Selection Modal
@@ -962,8 +1016,8 @@ const Banners: React.FC = () => {
                 property.images && property.images.length > 0
                   ? property.images[0]
                   : property.photos && property.photos.length > 0
-                  ? property.photos[0]
-                  : null;
+                    ? property.photos[0]
+                    : null;
 
               const propertyId = property.id || property._id;
               const isSelected = selectedPropertyIds.includes(propertyId);
@@ -972,8 +1026,8 @@ const Banners: React.FC = () => {
                   modalType === "featured"
                     ? featuredProperties
                     : modalType === "recommended"
-                    ? recommendedProperties
-                    : recentProperties;
+                      ? recommendedProperties
+                      : recentProperties;
                 return currentProps.find(
                   (existing) => (existing.id || existing._id) === propertyId
                 );
@@ -982,13 +1036,12 @@ const Banners: React.FC = () => {
               return (
                 <div
                   key={propertyId}
-                  className={`border rounded-lg p-4 transition-colors relative ${
-                    isAlreadyAdded
-                      ? "border-gray-300 bg-gray-50 opacity-50"
-                      : isSelected
+                  className={`border rounded-lg p-4 transition-colors relative ${isAlreadyAdded
+                    ? "border-gray-300 bg-gray-50 opacity-50"
+                    : isSelected
                       ? "border-blue-500 bg-blue-50"
                       : "border-gray-200 hover:border-gray-400 cursor-pointer"
-                  }`}
+                    }`}
                   onClick={() =>
                     !isAlreadyAdded && handlePropertyCheckbox(propertyId)
                   }
