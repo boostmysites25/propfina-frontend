@@ -1,7 +1,8 @@
 import axios from "axios";
 import type { login, PropertyFormData, PropertyFilters, UserFilters } from "./types";
 
-export const baseUrl = "http://localhost:3000";
+export const baseUrl = "https://propinfinia-production.up.railway.app";
+// export const baseUrl = "http://localhost:3000";
 
 const api = axios.create({
   baseURL: baseUrl,
