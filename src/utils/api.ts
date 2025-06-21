@@ -197,6 +197,16 @@ export const getUsersApi = (filters?: UserFilters) => {
   return authApi.get("/users", { params: filters });
 };
 
+// Get user properties (through visits)
+export const getUserPropertiesApi = (username: string) => {
+  return authApi.get(`/users/${encodeURIComponent(username)}/properties`);
+};
+
+// Get user recent activity
+export const getUserRecentActivityApi = (username: string) => {
+  return authApi.get(`/users/${encodeURIComponent(username)}/activity`);
+};
+
 // Delete a user by ID
 export const deleteUserApi = (userId: string) => {
   return authApi.delete(`/users/${userId}`);
