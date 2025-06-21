@@ -208,7 +208,7 @@ const Login: React.FC = () => {
         </div>
 
         {/* Login Method Toggle */}
-        <div className="flex bg-gray-100 rounded-lg p-1 mb-6">
+        {/* <div className="flex bg-gray-100 rounded-lg p-1 mb-6">
           <button
             type="button"
             onClick={() => {
@@ -232,7 +232,7 @@ const Login: React.FC = () => {
           >
             Phone Login
           </button>
-        </div>
+        </div> */}
 
         {loginMethod === 'email' ? (
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
