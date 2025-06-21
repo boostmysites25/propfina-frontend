@@ -112,3 +112,37 @@ export interface Property {
   reason?: string;
   deleted?: boolean;
 }
+
+export interface UserProperty {
+  id: string;
+  propertyName?: string;
+  projectName: string;
+  flatName: string;
+  pgName?: string;
+  name?: string;
+  title?: string;
+  locality: string;
+  city: string;
+  price: number;
+  images: string[];
+  photos?: (string | { url: string })[];
+  allPhotos?: string[];
+  image?: string;
+  originalImages?: string[];
+  originalPhotos?: (string | { url: string })[];
+  totalImageCount?: number;
+  createdAt: any;
+}
+
+export interface UserRecentActivity {
+  courseId: string;
+  type: string;
+  uid: string;
+  propertyName: string;
+  propertyAddress: string;
+  date: string;
+  time: string;
+  createdAt: any;
+  username: string;
+  userEmail: string;
+}
