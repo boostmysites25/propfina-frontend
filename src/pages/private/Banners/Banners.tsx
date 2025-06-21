@@ -335,7 +335,7 @@ const Banners: React.FC = () => {
   // Save banner customization mutation
   const saveBannerMutation = useMutation({
     mutationFn: saveBannerCustomizationApi,
-    onSuccess: (data, variables) => {
+    onSuccess: (_data, variables) => {
       toast.success("Banner customization saved successfully!");
 
       // Invalidate the banner customization query to ensure fresh data on next fetch

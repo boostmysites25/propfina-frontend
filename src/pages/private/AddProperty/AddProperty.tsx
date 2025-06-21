@@ -43,17 +43,23 @@ const AddProperty: React.FC = () => {
 
   // Watch form values
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const parkingAvailability = watch("parking");
+  // const parkingAvailability =
+  watch("parking");
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const possessionStatus = watch("possessionStatus");
+  // const possessionStatus =
+  watch("possessionStatus");
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const furnishedStatus = watch("furnishedStatus");
+  // const furnishedStatus =
+  watch("furnishedStatus");
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const propertyAge = watch("ageOfProperty");
+  // const propertyAge =
+  watch("ageOfProperty");
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const description = watch("description");
+  // const description =
+  watch("description");
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const additionalNotes = watch("additionalNotes");
+  // const additionalNotes =
+  watch("additionalNotes");
 
   // API mutation
   const mutation = useMutation({
@@ -71,27 +77,27 @@ const AddProperty: React.FC = () => {
         ageOfProperty: "0–1 year",
         images: [],
       });
-      
+
       // Reset dropdown values
       setBhkValue("");
       setBathroomsValue("");
       setBalconiesValue("");
       setOwnershipValue("");
       setLeaseTypeValue("");
-      
+
       // Clear selected files
       setSelectedFiles([]);
-      
+
       // Clear file input
       if (fileInputRef.current) {
-        fileInputRef.current.value = '';
+        fileInputRef.current.value = "";
       }
-      
+
       // Reset form submitted state
       setFormSubmitted(false);
-      
+
       // Scroll to top
-      window.scrollTo({ top: 0, behavior: 'smooth' });
+      window.scrollTo({ top: 0, behavior: "smooth" });
     },
     onError: (error) => {
       toast.error("Failed to add property. Please try again.");
@@ -102,14 +108,14 @@ const AddProperty: React.FC = () => {
   // Upload all selected files to Firebase and return URLs
   const uploadAllImages = async (files: File[]): Promise<string[]> => {
     if (files.length === 0) return [];
-    
+
     try {
       setIsUploadingImages(true);
       const uploadPromises = files.map(async (file) => {
         const result = await uploadImage(file);
         return result.url;
       });
-      
+
       return await Promise.all(uploadPromises);
     } catch (error) {
       console.error("Error uploading images to Firebase:", error);
@@ -139,7 +145,7 @@ const AddProperty: React.FC = () => {
   };
 
   const handleRemoveFile = (indexToRemove: number) => {
-    setSelectedFiles((prevFiles) => 
+    setSelectedFiles((prevFiles) =>
       prevFiles.filter((_, index) => index !== indexToRemove)
     );
   };
@@ -184,18 +190,18 @@ const AddProperty: React.FC = () => {
   const onSubmit: SubmitHandler<PropertyFormData> = async (data) => {
     // Set form as submitted to show validation errors
     setFormSubmitted(true);
-    
+
     // Check if required fields are filled
     if (!bhkValue || !bathroomsValue) {
       toast.error("Please fill all required fields");
       return;
     }
-    
+
     try {
       // First upload all images
       const uploadingToast = toast.loading("Uploading images...");
       let imageUrls: string[] = [];
-      
+
       if (selectedFiles.length > 0) {
         try {
           imageUrls = await uploadAllImages(selectedFiles);
@@ -205,9 +211,9 @@ const AddProperty: React.FC = () => {
           return; // Stop form submission if image upload fails
         }
       }
-      
+
       toast.dismiss(uploadingToast);
-      
+
       // Set dropdown values that might not be in the form
       data.bhk = bhkValue;
       data.bathrooms = bathroomsValue;
@@ -220,7 +226,7 @@ const AddProperty: React.FC = () => {
       data.builtUpArea = Number(data.builtUpArea);
       data.superBuiltUpArea = Number(data.superBuiltUpArea);
       data.carpetArea = Number(data.carpetArea);
-      
+
       // Set the image URLs from our upload
       data.images = imageUrls;
 
@@ -416,7 +422,9 @@ const AddProperty: React.FC = () => {
                   disabled={isSubmitting}
                 >
                   <option value="">Select type</option>
-                  <option value="Independent House/Villa">Independent House/Villa</option>
+                  <option value="Independent House/Villa">
+                    Independent House/Villa
+                  </option>
                   <option value="Apartment">Apartment</option>
                   <option value="Flat">Flat</option>
                   <option value="Plot">Plot</option>
@@ -623,7 +631,9 @@ const AddProperty: React.FC = () => {
                 <button
                   type="button"
                   className={`w-full px-4 py-3 text-left border ${
-                    formSubmitted && !bhkValue ? "border-red-300" : "border-gray-300"
+                    formSubmitted && !bhkValue
+                      ? "border-red-300"
+                      : "border-gray-300"
                   } rounded-md bg-white outline-none text-gray-700 cursor-pointer flex justify-between items-center`}
                   onClick={() => toggleDropdown("bhkDropdown")}
                   disabled={isSubmitting}
@@ -661,7 +671,9 @@ const AddProperty: React.FC = () => {
                 <button
                   type="button"
                   className={`w-full px-4 py-3 text-left border ${
-                    formSubmitted && !bathroomsValue ? "border-red-300" : "border-gray-300"
+                    formSubmitted && !bathroomsValue
+                      ? "border-red-300"
+                      : "border-gray-300"
                   } rounded-md bg-white outline-none text-gray-700 cursor-pointer flex justify-between items-center`}
                   onClick={() => toggleDropdown("bathroomsDropdown")}
                   disabled={isSubmitting}
@@ -941,7 +953,12 @@ const AddProperty: React.FC = () => {
             <button
               type="submit"
               className="flex items-center justify-center px-6 py-3 bg-black text-white font-medium rounded-md hover:bg-gray-800 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-              disabled={isSubmitting || isUploadingImages || !bhkValue || !bathroomsValue}
+              disabled={
+                isSubmitting ||
+                isUploadingImages ||
+                !bhkValue ||
+                !bathroomsValue
+              }
             >
               {isSubmitting || isUploadingImages ? (
                 <>
@@ -965,7 +982,9 @@ const AddProperty: React.FC = () => {
                       d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
                     ></path>
                   </svg>
-                  {isUploadingImages ? "Uploading Images..." : "Adding Property..."}
+                  {isUploadingImages
+                    ? "Uploading Images..."
+                    : "Adding Property..."}
                 </>
               ) : (
                 <>

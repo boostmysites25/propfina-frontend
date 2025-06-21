@@ -63,17 +63,23 @@ const EditProperty: React.FC = () => {
 
   // Watch form values
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const parkingAvailability = watch("parking");
+  // const parkingAvailability =
+   watch("parking");
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const possessionStatus = watch("possessionStatus");
+  // const possessionStatus =
+   watch("possessionStatus");
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const furnishedStatus = watch("furnishedStatus");
+  // const furnishedStatus =
+   watch("furnishedStatus");
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const propertyAge = watch("ageOfProperty");
+  // const propertyAge =
+   watch("ageOfProperty");
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const description = watch("description");
+  // const description =
+   watch("description");
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const additionalNotes = watch("additionalNotes");
+  // const additionalNotes =
+   watch("additionalNotes");
 
   // API mutation
   const mutation = useMutation({
