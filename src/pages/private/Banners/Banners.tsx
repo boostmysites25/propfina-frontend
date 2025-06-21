@@ -9,7 +9,6 @@ import {
   uploadHeroBannerApi,
   getHeroBannerApi,
   deleteHeroBannerApi,
-  initializeCollectionsApi,
 } from "../../../utils/api";
 import { uploadImage } from "../../../utils/uploadImage";
 
@@ -25,11 +24,11 @@ interface Property {
   location?: string;
   locality: string;
   createdAt:
-  | {
-    _seconds: number;
-    _nanoseconds: number;
-  }
-  | string;
+    | {
+        _seconds: number;
+        _nanoseconds: number;
+      }
+    | string;
   images?: string[];
   photos?: string[];
   buildingType: string;
@@ -80,7 +79,11 @@ const PropertySection: React.FC<PropertySectionProps> = ({
     if (selectAllForRemoval) {
       setSelectedForRemoval([]);
     } else {
-      setSelectedForRemoval(properties.map((p) => p.id || p._id));
+      // Filter out any undefined values to ensure we only have strings
+      const propertyIds = properties
+        .map((p) => p.id || p._id)
+        .filter((id): id is string => id !== undefined);
+      setSelectedForRemoval(propertyIds);
     }
     setSelectAllForRemoval(!selectAllForRemoval);
   };
@@ -136,101 +139,104 @@ const PropertySection: React.FC<PropertySectionProps> = ({
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {properties.map((property) => {
-          // Get the first available image
-          const imageUrl =
-            property.images && property.images.length > 0
-              ? property.images[0]
-              : property.photos && property.photos.length > 0
+        {properties
+          .filter((property) => (property.id || property._id) !== undefined)
+          .map((property) => {
+            // Get the first available image
+            const imageUrl =
+              property.images && property.images.length > 0
+                ? property.images[0]
+                : property.photos && property.photos.length > 0
                 ? property.photos[0]
                 : null;
 
-          // Format the creation date
-          const createdDate =
-            typeof property.createdAt === "string"
-              ? new Date(property.createdAt)
-              : property.createdAt._seconds
+            // Format the creation date
+            const createdDate =
+              typeof property.createdAt === "string"
+                ? new Date(property.createdAt)
+                : property.createdAt._seconds
                 ? new Date(property.createdAt._seconds * 1000)
                 : new Date();
 
-          return (
-            <div
-              key={property.id || property._id}
-              className={`bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow relative ${selectedForRemoval.includes(property.id || property._id)
-                ? "ring-2 ring-red-500"
-                : ""
+            const propertyKey = (property.id || property._id)!;
+
+            return (
+              <div
+                key={propertyKey}
+                className={`bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow relative ${
+                  selectedForRemoval.includes(propertyKey)
+                    ? "ring-2 ring-red-500"
+                    : ""
                 }`}
-            >
-              <div className="absolute top-2 right-2 z-10">
-                <input
-                  type="checkbox"
-                  checked={selectedForRemoval.includes(
-                    property.id || property._id
-                  )}
-                  onChange={() =>
-                    handleRemovalCheckbox(property.id || property._id)
-                  }
-                  className="w-5 h-5 text-red-600 border-2 border-white bg-white rounded shadow-lg"
-                />
-              </div>
-              <div className="relative h-48 overflow-hidden">
-                {imageUrl ? (
-                  <img
-                    src={imageUrl}
-                    alt={property.projectName || property.title || "Property"}
-                    className="w-full h-full object-cover"
-                    onError={(e) => {
-                      // Fallback to placeholder if image fails to load
-                      const target = e.target as HTMLImageElement;
-                      target.src =
-                        "https://readdy.ai/api/search-image?query=modern%20apartment%20building&width=400&height=300&seq=1&orientation=landscape";
-                    }}
-                  />
-                ) : (
-                  <div className="w-full h-full flex items-center justify-center bg-gray-100">
-                    <i className="fas fa-image text-4xl text-gray-400"></i>
-                  </div>
-                )}
-                <div className="absolute top-2 left-2 bg-black bg-opacity-60 text-white text-xs px-2 py-1 rounded">
-                  {property.intent || property.type || property.buildingType}
-                </div>
-              </div>
-              <div className="p-4">
-                <h3 className="text-lg font-medium text-gray-800 mb-2">
-                  {property.projectName ||
-                    property.title ||
-                    "Untitled Property"}
-                </h3>
-                <div className="text-xl font-semibold text-gray-900 mb-3">
-                  ₹ {property.price.toLocaleString()}
-                </div>
-                <div className="flex items-center text-gray-600 mb-3">
-                  <i className="fas fa-map-marker-alt text-gray-400 mr-2"></i>
-                  <span className="text-sm">
-                    {property.locality || property.location || property.city}
-                  </span>
-                </div>
-                <div className="flex items-center text-gray-600 mb-4">
-                  <i className="far fa-calendar text-gray-400 mr-2"></i>
-                  <span className="text-sm">
-                    {createdDate.toLocaleDateString()}
-                  </span>
-                </div>
-                <div className="flex gap-2">
-                  <button
-                    onClick={() =>
-                      onRemoveProperty(property.id || property._id)
+              >
+                <div className="absolute top-2 right-2 z-10">
+                  <input
+                    type="checkbox"
+                    checked={selectedForRemoval.includes(propertyKey)}
+                    onChange={() =>
+                      handleRemovalCheckbox(propertyKey)
                     }
-                    className="w-full py-2 px-3 bg-red-50 text-red-600 rounded-md text-sm hover:bg-red-100 transition-colors"
-                  >
-                    <i className="fas fa-trash mr-1"></i>
-                    Remove
-                  </button>
+                    className="w-5 h-5 text-red-600 border-2 border-white bg-white rounded shadow-lg"
+                  />
+                </div>
+                <div className="relative h-48 overflow-hidden">
+                  {imageUrl ? (
+                    <img
+                      src={imageUrl}
+                      alt={property.projectName || property.title || "Property"}
+                      className="w-full h-full object-cover"
+                      onError={(e) => {
+                        // Fallback to placeholder if image fails to load
+                        const target = e.target as HTMLImageElement;
+                        target.src =
+                          "https://readdy.ai/api/search-image?query=modern%20apartment%20building&width=400&height=300&seq=1&orientation=landscape";
+                      }}
+                    />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center bg-gray-100">
+                      <i className="fas fa-image text-4xl text-gray-400"></i>
+                    </div>
+                  )}
+                  <div className="absolute top-2 left-2 bg-black bg-opacity-60 text-white text-xs px-2 py-1 rounded">
+                    {property.intent || property.type || property.buildingType}
+                  </div>
+                </div>
+                <div className="p-4">
+                  <h3 className="text-lg font-medium text-gray-800 mb-2">
+                    {property.projectName ||
+                      property.title ||
+                      "Untitled Property"}
+                  </h3>
+                  <div className="text-xl font-semibold text-gray-900 mb-3">
+                    ₹ {property.price.toLocaleString()}
+                  </div>
+                  <div className="flex items-center text-gray-600 mb-3">
+                    <i className="fas fa-map-marker-alt text-gray-400 mr-2"></i>
+                    <span className="text-sm">
+                      {property.locality || property.location || property.city}
+                    </span>
+                  </div>
+                  <div className="flex items-center text-gray-600 mb-4">
+                    <i className="far fa-calendar text-gray-400 mr-2"></i>
+                    <span className="text-sm">
+                      {createdDate.toLocaleDateString()}
+                    </span>
+                  </div>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() =>
+                        onRemoveProperty(propertyKey)
+                      }
+                      className="w-full py-2 px-3 bg-red-50 text-red-600 rounded-md text-sm hover:bg-red-100 transition-colors"
+                    >
+                      <i className="fas fa-trash mr-1"></i>
+                      Remove
+                    </button>
+                  </div>
                 </div>
               </div>
-            </div>
-          );
-        })}
+            );
+          })}
       </div>
 
       {properties.length === 0 && (
@@ -291,7 +297,11 @@ const Banners: React.FC = () => {
   const [previewUrl, setPreviewUrl] = useState<string>("");
   const [uploadingImage, setUploadingImage] = useState(false);
 
-  const [banners, setBanners] = useState([]);
+  // interface Banner {
+  //   id: number;
+  //   // Add other banner properties as needed
+  // }
+  // const [banners, setBanners] = useState<Banner[]>([]);
 
   const [hoveredBannerId, setHoveredBannerId] = useState<number | null>(null);
 
@@ -327,35 +337,40 @@ const Banners: React.FC = () => {
     mutationFn: saveBannerCustomizationApi,
     onSuccess: (data, variables) => {
       toast.success("Banner customization saved successfully!");
-      
+
       // Invalidate the banner customization query to ensure fresh data on next fetch
-      queryClient.invalidateQueries({ 
-        queryKey: ["bannerCustomization", variables.city] 
+      queryClient.invalidateQueries({
+        queryKey: ["bannerCustomization", variables.city],
       });
-      
+
       // Update the query cache with the new data to avoid refetching
-      queryClient.setQueryData(
-        ["bannerCustomization", variables.city],
-        {
+      queryClient.setQueryData(["bannerCustomization", variables.city], {
+        data: {
           data: {
-            data: {
-              city: variables.city,
-              featuredProperties: variables.featuredProperties,
-              recommendedProperties: variables.recommendedProperties,
-              recentProperties: variables.recentProperties
-            }
-          }
-        }
-      );
-      
+            city: variables.city,
+            featuredProperties: variables.featuredProperties,
+            recommendedProperties: variables.recommendedProperties,
+            recentProperties: variables.recentProperties,
+          },
+        },
+      });
+
       // Set flag to prevent immediate loading from backend
       setHasUserInteracted(true);
     },
-    onError: (error: any) => {
-      toast.error(
-        `Failed to save banner customization: ${error.response?.status || "Unknown error"
-        }`
-      );
+    onError: (error: unknown) => {
+      let errorMessage = "Unknown error";
+      if (
+        typeof error === "object" &&
+        error !== null &&
+        "response" in error &&
+        typeof (error as { response?: { status?: string } }).response === "object"
+      ) {
+        errorMessage =
+          (error as { response?: { status?: string } }).response?.status ||
+          "Unknown error";
+      }
+      toast.error(`Failed to save banner customization: ${errorMessage}`);
     },
   });
 
@@ -383,40 +398,37 @@ const Banners: React.FC = () => {
     onSuccess: (response, variables) => {
       toast.success("Hero banner updated successfully!");
       setShowHeroBannerModal(false);
-      
+
       // Clean up file states
       setSelectedFile(null);
       if (previewUrl && previewUrl.startsWith("blob:")) {
         URL.revokeObjectURL(previewUrl);
       }
       setPreviewUrl("");
-      
+
       // Invalidate the hero banner query to ensure fresh data on next fetch
-      queryClient.invalidateQueries({ 
-        queryKey: ["heroBanner", variables.city] 
+      queryClient.invalidateQueries({
+        queryKey: ["heroBanner", variables.city],
       });
-      
+
       // Update the query cache with the new data
-      queryClient.setQueryData(
-        ["heroBanner", variables.city],
-        {
-          data: {
-            id: response?.data?.id || new Date().getTime().toString(),
-            city: variables.city,
-            image: variables.data.image,
-            title: variables.data.title,
-            updatedAt: new Date()
-          }
-        }
-      );
-      
+      queryClient.setQueryData(["heroBanner", variables.city], {
+        data: {
+          id: response?.data?.id || new Date().getTime().toString(),
+          city: variables.city,
+          image: variables.data.image,
+          title: variables.data.title,
+          updatedAt: new Date(),
+        },
+      });
+
       // Update the local state
       setHeroBanner({
         id: response?.data?.id || new Date().getTime().toString(),
         city: variables.city,
         image: variables.data.image,
         title: variables.data.title,
-        updatedAt: new Date()
+        updatedAt: new Date(),
       });
     },
     onError: (error) => {
@@ -426,18 +438,28 @@ const Banners: React.FC = () => {
   });
 
   // Initialize collections mutation
-  const initializeCollectionsMutation = useMutation({
-    mutationFn: initializeCollectionsApi,
-    onSuccess: () => {
-      toast.success("Firebase collections initialized successfully!");
-    },
-    onError: (error: any) => {
-      toast.error(
-        `Failed to initialize collections: ${error.response?.status || "Unknown error"
-        }`
-      );
-    },
-  });
+  // const initializeCollectionsMutation = useMutation({
+  //   mutationFn: initializeCollectionsApi,
+  //   onSuccess: () => {
+  //     toast.success("Firebase collections initialized successfully!");
+  //   },
+  //   onError: (error: unknown) => {
+  //     let errorMessage = "Unknown error";
+  //     if (
+  //       typeof error === "object" &&
+  //       error !== null &&
+  //       "response" in error &&
+  //       typeof (error as { response?: { status?: string } }).response === "object"
+  //     ) {
+  //       errorMessage =
+  //         (error as { response?: { status?: string } }).response?.status ||
+  //         "Unknown error";
+  //     }
+  //     toast.error(
+  //       `Failed to initialize collections: ${errorMessage}`
+  //     );
+  //   },
+  // });
 
   // Update available cities when cities data changes
   useEffect(() => {
@@ -460,14 +482,19 @@ const Banners: React.FC = () => {
 
   // Load saved banner customization when city changes
   useEffect(() => {
-    console.log("🔄 Frontend: useEffect triggered - Banner customization query status:", {
-      isLoading: bannerCustomizationQuery.isLoading,
-      isError: bannerCustomizationQuery.isError,
-      hasData: !!bannerCustomizationQuery.data,
-      dataPath: bannerCustomizationQuery.data?.data?.data ? "EXISTS" : "MISSING",
-      error: bannerCustomizationQuery.error?.message,
-      hasUserInteracted: hasUserInteracted,
-    });
+    console.log(
+      "🔄 Frontend: useEffect triggered - Banner customization query status:",
+      {
+        isLoading: bannerCustomizationQuery.isLoading,
+        isError: bannerCustomizationQuery.isError,
+        hasData: !!bannerCustomizationQuery.data,
+        dataPath: bannerCustomizationQuery.data?.data?.data
+          ? "EXISTS"
+          : "MISSING",
+        error: bannerCustomizationQuery.error?.message,
+        hasUserInteracted: hasUserInteracted,
+      }
+    );
     console.log("🏘️ Frontend: City properties count:", cityProperties.length);
 
     // Don't load from backend if user has interacted (to prevent overriding local changes)
@@ -480,7 +507,10 @@ const Banners: React.FC = () => {
     if (cityProperties.length > 0 && !bannerCustomizationQuery.isLoading) {
       if (bannerCustomizationQuery.data?.data?.data) {
         const savedCustomization = bannerCustomizationQuery.data.data.data;
-        console.log("📥 Frontend: Loading saved customization from backend:", savedCustomization);
+        console.log(
+          "📥 Frontend: Loading saved customization from backend:",
+          savedCustomization
+        );
 
         // Debug: Log the saved property IDs vs available property IDs
         console.log("🔍 Saved property IDs:", {
@@ -561,7 +591,10 @@ const Banners: React.FC = () => {
       } else {
         // No saved customization found - this is normal for new cities
         // Arrays are already cleared in handleCitySelect, so no need to do anything
-        console.log("❌ Frontend: No saved customization found for city:", selectedCity);
+        console.log(
+          "❌ Frontend: No saved customization found for city:",
+          selectedCity
+        );
       }
     }
   }, [
@@ -576,7 +609,9 @@ const Banners: React.FC = () => {
   // Load hero banner when city changes (only if user hasn't interacted)
   useEffect(() => {
     if (hasUserInteracted) {
-      console.log("🚫 Frontend: Skipping hero banner load - user has interacted");
+      console.log(
+        "🚫 Frontend: Skipping hero banner load - user has interacted"
+      );
       return;
     }
 
@@ -621,17 +656,17 @@ const Banners: React.FC = () => {
     setShowCityModal(true);
   };
 
-  const handleMouseEnter = (id: number) => {
-    setHoveredBannerId(id);
-  };
+  // const handleMouseEnter = (id: number) => {
+  //   setHoveredBannerId(id);
+  // };
 
-  const handleMouseLeave = () => {
-    setHoveredBannerId(null);
-  };
+  // const handleMouseLeave = () => {
+  //   setHoveredBannerId(null);
+  // };
 
-  const handleDelete = (id: number) => {
-    setBanners(banners.filter((banner) => banner.id !== id));
-  };
+  // const handleDelete = (id: number) => {
+  //   setBanners(banners.filter((banner) => banner.id !== id));
+  // };
 
   const handleAddProperty = (type: "featured" | "recommended" | "recent") => {
     setModalType(type);
@@ -646,8 +681,8 @@ const Banners: React.FC = () => {
       prev.includes(propertyId)
         ? prev.filter((id) => id !== propertyId)
         : prev.length < 10
-          ? [...prev, propertyId]
-          : prev
+        ? [...prev, propertyId]
+        : prev
     );
   };
 
@@ -662,15 +697,15 @@ const Banners: React.FC = () => {
             modalType === "featured"
               ? featuredProperties
               : modalType === "recommended"
-                ? recommendedProperties
-                : recentProperties;
+              ? recommendedProperties
+              : recentProperties;
           return !currentProps.find(
             (existing) => (existing.id || existing._id) === (p.id || p._id)
           );
         })
         .slice(0, 10)
         .map((p) => p.id || p._id);
-      setSelectedPropertyIds(availableIds);
+      setSelectedPropertyIds(availableIds.filter((id): id is string => id !== undefined));
     }
     setSelectAll(!selectAll);
   };
@@ -681,31 +716,34 @@ const Banners: React.FC = () => {
     setHasUserInteracted(true);
 
     const propertiesToAdd = cityProperties.filter((p) =>
-      selectedPropertyIds.includes(p.id || p._id)
+      selectedPropertyIds.includes((p.id || p._id) as string)
     );
 
     switch (modalType) {
-      case "featured":
+      case "featured": {
         const newFeatured = [...featuredProperties, ...propertiesToAdd].slice(
           0,
           10
         );
         setFeaturedProperties(newFeatured);
         break;
-      case "recommended":
+      }
+      case "recommended": {
         const newRecommended = [
           ...recommendedProperties,
           ...propertiesToAdd,
         ].slice(0, 10);
         setRecommendedProperties(newRecommended);
         break;
-      case "recent":
+      }
+      case "recent": {
         const newRecent = [...recentProperties, ...propertiesToAdd].slice(
           0,
           10
         );
         setRecentProperties(newRecent);
         break;
+      }
     }
 
     toast.success(
@@ -753,19 +791,26 @@ const Banners: React.FC = () => {
     switch (section) {
       case "featured":
         setFeaturedProperties(
-          featuredProperties.filter((p) => !propertyIds.includes(p.id || p._id))
+          featuredProperties.filter((p) => {
+            const propertyId = p.id || p._id;
+            return propertyId ? !propertyIds.includes(propertyId) : true;
+          })
         );
         break;
       case "recommended":
         setRecommendedProperties(
-          recommendedProperties.filter(
-            (p) => !propertyIds.includes(p.id || p._id)
-          )
+          recommendedProperties.filter((p) => {
+            const propertyId = p.id || p._id;
+            return propertyId ? !propertyIds.includes(propertyId) : true;
+          })
         );
         break;
       case "recent":
         setRecentProperties(
-          recentProperties.filter((p) => !propertyIds.includes(p.id || p._id))
+          recentProperties.filter((p) => {
+            const propertyId = p.id || p._id;
+            return propertyId ? !propertyIds.includes(propertyId) : true;
+          })
         );
         break;
     }
@@ -778,29 +823,41 @@ const Banners: React.FC = () => {
   const handleSaveBannerCustomization = () => {
     const data = {
       city: selectedCity,
-      featuredProperties: featuredProperties.map((p) => p.id || p._id),
-      recommendedProperties: recommendedProperties.map((p) => p.id || p._id),
-      recentProperties: recentProperties.map((p) => p.id || p._id),
+      featuredProperties: featuredProperties
+        .map((p) => p.id || p._id)
+        .filter((id): id is string => typeof id === "string"),
+      recommendedProperties: recommendedProperties
+        .map((p) => p.id || p._id)
+        .filter((id): id is string => typeof id === "string"),
+      recentProperties: recentProperties
+        .map((p) => p.id || p._id)
+        .filter((id): id is string => typeof id === "string"),
     };
-    console.log("🚀 Frontend: Saving banner customization for", selectedCity, "with", {
-      featured: data.featuredProperties.length,
-      recommended: data.recommendedProperties.length,
-      recent: data.recentProperties.length,
-    }, "properties");
+    console.log(
+      "🚀 Frontend: Saving banner customization for",
+      selectedCity,
+      "with",
+      {
+        featured: data.featuredProperties.length,
+        recommended: data.recommendedProperties.length,
+        recent: data.recentProperties.length,
+      },
+      "properties"
+    );
     saveBannerMutation.mutate(data);
   };
 
-  // Debug function to check if data was saved
-  const handleDebugLoad = async () => {
-    try {
-      const result = await getBannerCustomizationApi(selectedCity);
-      console.log("🔍 Debug load result:", result.data);
-      toast.success("Check console for saved data");
-    } catch (error) {
-      console.log("🔍 Debug load error (expected if no data saved):", error);
-      toast.info("No saved data found (check console)");
-    }
-  };
+  // // Debug function to check if data was saved
+  // const handleDebugLoad = async () => {
+  //   try {
+  //     const result = await getBannerCustomizationApi(selectedCity);
+  //     console.log("🔍 Debug load result:", result.data);
+  //     toast.success("Check console for saved data");
+  //   } catch (error) {
+  //     console.log("🔍 Debug load error (expected if no data saved):", error);
+  //     toast("No saved data found (check console)");
+  //   }
+  // };
 
   // Hero Banner Handlers
   const handleHeroBannerEdit = () => {
@@ -888,22 +945,47 @@ const Banners: React.FC = () => {
       // heroBannerQuery.refetch(); // Update the query cache
       toast.success("Hero banner deleted successfully!");
     },
-    onError: (error: any) => {
+    onError: (error: unknown) => {
       console.error("❌ Frontend: Hero banner delete error:", error);
+
+      let status: number | undefined;
+      let statusText: string | undefined;
+      let data: unknown;
+      let message: string | undefined;
+      let errorMessage: string | undefined;
+
+      if (
+        typeof error === "object" &&
+        error !== null &&
+        "response" in error &&
+        typeof (error as { response?: unknown }).response === "object"
+      ) {
+        const response = (error as { response?: { status?: number; statusText?: string; data?: { message?: string }; message?: string } }).response;
+        status = response?.status;
+        statusText = response?.statusText;
+        data = response?.data;
+        message = response?.message;
+        errorMessage = response?.data?.message;
+      } else if (typeof error === "object" && error !== null && "message" in error) {
+        message = (error as { message?: string }).message;
+      }
+
       console.error("❌ Error details:", {
-        status: error.response?.status,
-        statusText: error.response?.statusText,
-        data: error.response?.data,
-        message: error.message
+        status,
+        statusText,
+        data,
+        message,
       });
 
-      if (error.response?.status === 404) {
+      if (status === 404) {
         toast.error("Hero banner not found - it may have already been deleted");
         setHeroBanner(null); // Clear from UI anyway
       } else {
-        toast.error(error.response?.data?.message || "Failed to delete hero banner");
+        toast.error(
+          errorMessage || "Failed to delete hero banner"
+        );
       }
-    }
+    },
   });
 
   const handleHeroBannerDelete = () => {
@@ -914,7 +996,7 @@ const Banners: React.FC = () => {
     setHasUserInteracted(true);
 
     if (!heroBanner) {
-      toast.info("No hero banner to delete");
+      toast("No hero banner to delete");
       return;
     }
 
@@ -1064,18 +1146,19 @@ const Banners: React.FC = () => {
                 property.images && property.images.length > 0
                   ? property.images[0]
                   : property.photos && property.photos.length > 0
-                    ? property.photos[0]
-                    : null;
+                  ? property.photos[0]
+                  : null;
 
               const propertyId = property.id || property._id;
-              const isSelected = selectedPropertyIds.includes(propertyId);
+              const isSelected =
+                typeof propertyId === "string" && selectedPropertyIds.includes(propertyId);
               const isAlreadyAdded = (() => {
                 const currentProps =
                   modalType === "featured"
                     ? featuredProperties
                     : modalType === "recommended"
-                      ? recommendedProperties
-                      : recentProperties;
+                    ? recommendedProperties
+                    : recentProperties;
                 return currentProps.find(
                   (existing) => (existing.id || existing._id) === propertyId
                 );
@@ -1084,14 +1167,15 @@ const Banners: React.FC = () => {
               return (
                 <div
                   key={propertyId}
-                  className={`border rounded-lg p-4 transition-colors relative ${isAlreadyAdded
-                    ? "border-gray-300 bg-gray-50 opacity-50"
-                    : isSelected
+                  className={`border rounded-lg p-4 transition-colors relative ${
+                    isAlreadyAdded
+                      ? "border-gray-300 bg-gray-50 opacity-50"
+                      : isSelected
                       ? "border-blue-500 bg-blue-50"
                       : "border-gray-200 hover:border-gray-400 cursor-pointer"
-                    }`}
+                  }`}
                   onClick={() =>
-                    !isAlreadyAdded && handlePropertyCheckbox(propertyId)
+                    !isAlreadyAdded && typeof propertyId === "string" && handlePropertyCheckbox(propertyId)
                   }
                 >
                   {!isAlreadyAdded && (
@@ -1101,7 +1185,9 @@ const Banners: React.FC = () => {
                         checked={isSelected}
                         onChange={(e) => {
                           e.stopPropagation();
-                          handlePropertyCheckbox(propertyId);
+                          if (typeof propertyId === "string") {
+                            handlePropertyCheckbox(propertyId);
+                          }
                         }}
                         className="w-5 h-5 text-blue-600 border-2 border-white bg-white rounded shadow-lg"
                       />
@@ -1188,7 +1274,10 @@ const Banners: React.FC = () => {
 
             <button
               onClick={handleSaveBannerCustomization}
-              disabled={saveBannerMutation.isPending || bannerCustomizationQuery.isLoading}
+              disabled={
+                saveBannerMutation.isPending ||
+                bannerCustomizationQuery.isLoading
+              }
               className="bg-blue-600 text-white px-4 py-2 rounded-md flex items-center gap-2 hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {saveBannerMutation.isPending ? (
@@ -1221,8 +1310,8 @@ const Banners: React.FC = () => {
               onClick={handleHeroBannerEdit}
               disabled={heroBannerQuery.isLoading}
               className={`${
-                heroBannerQuery.isLoading 
-                  ? "bg-gray-400 cursor-not-allowed" 
+                heroBannerQuery.isLoading
+                  ? "bg-gray-400 cursor-not-allowed"
                   : "bg-gray-900 hover:bg-gray-800"
               } text-white px-4 py-2 rounded-md flex items-center gap-2 transition-colors`}
             >
@@ -1318,7 +1407,9 @@ const Banners: React.FC = () => {
           <div className="space-y-8">
             <div className="flex flex-col items-center justify-center py-20 bg-gray-50 rounded-lg border-2 border-dashed border-gray-300">
               <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-gray-900 mb-4"></div>
-              <p className="text-gray-500">Loading banner customization data...</p>
+              <p className="text-gray-500">
+                Loading banner customization data...
+              </p>
             </div>
           </div>
         ) : (

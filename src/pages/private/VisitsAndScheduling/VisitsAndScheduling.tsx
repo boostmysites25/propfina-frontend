@@ -30,13 +30,13 @@ const VisitsAndScheduling: React.FC = () => {
   // Fetch visits using React Query
   const {
     data: visits = [],
-    isLoading,
+    isPending: isLoading,
     isError,
     error,
   } = useQuery<Visit[]>({
     queryKey: ["visits", { search: searchQuery, startDate, endDate }],
     queryFn: async () => {
-      const filters: any = {};
+      const filters: { search?: string; startDate?: string; endDate?: string } = {};
       if (searchQuery) filters.search = searchQuery;
       if (startDate) filters.startDate = startDate;
       if (endDate) filters.endDate = endDate;

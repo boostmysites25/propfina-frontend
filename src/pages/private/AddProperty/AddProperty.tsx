@@ -199,7 +199,7 @@ const AddProperty: React.FC = () => {
       if (selectedFiles.length > 0) {
         try {
           imageUrls = await uploadAllImages(selectedFiles);
-        } catch (error) {
+        } catch {
           toast.dismiss(uploadingToast);
           toast.error("Failed to upload images. Please try again.");
           return; // Stop form submission if image upload fails

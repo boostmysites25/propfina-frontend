@@ -131,7 +131,10 @@ export interface UserProperty {
   originalImages?: string[];
   originalPhotos?: (string | { url: string })[];
   totalImageCount?: number;
-  createdAt: any;
+  createdAt: {
+    _seconds: number;
+    _nanoseconds: number;
+  } | string | Date;
 }
 
 export interface UserRecentActivity {
@@ -142,7 +145,10 @@ export interface UserRecentActivity {
   propertyAddress: string;
   date: string;
   time: string;
-  createdAt: any;
+  createdAt: {
+    _seconds: number;
+    _nanoseconds: number;
+  } | string | Date;
   username: string;
   userEmail: string;
 }

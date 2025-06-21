@@ -55,15 +55,17 @@ const Settings: React.FC = () => {
     },
   });
 
-  const { handleSubmit: handleSubmitPhone, reset: resetPhone } = useForm<{}>(
-    {}
-  );
+  const { reset: resetPhone } = useForm<PhoneFormData>({
+    defaultValues: {
+      phoneNumber: ""
+    }
+  });
 
   // Watch the new password for validation
   const newPassword = watch("newPassword");
 
   // Update password mutation
-  const { mutate: updatePassword, isLoading: isPasswordLoading } = useMutation({
+  const { mutate: updatePassword, isPending: isPasswordLoading } = useMutation({
     mutationFn: updatePasswordApi,
     onSuccess: () => {
       toast.success("Password updated successfully");
@@ -75,7 +77,7 @@ const Settings: React.FC = () => {
   });
 
   // Add phone number mutation
-  const { mutate: addPhone, isLoading: isPhoneLoading } = useMutation({
+  const { mutate: addPhone, isPending: isPhoneLoading } = useMutation({
     mutationFn: addPhoneNumberApi,
     onSuccess: (data) => {
       toast.success(data.data.message || "Phone number added successfully");

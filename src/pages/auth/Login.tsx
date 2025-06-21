@@ -18,9 +18,10 @@ type PhoneFormInputs = {
   otp: string;
 };
 
+import type { UserCredential } from "firebase/auth";
 // Define ConfirmationResult interface manually since it's not exported properly
 interface ConfirmationResult {
-  confirm: (verificationCode: string) => Promise<any>;
+  confirm: (verificationCode: string) => Promise<UserCredential>;
 }
 
 const Login: React.FC = () => {
@@ -59,7 +60,8 @@ const Login: React.FC = () => {
     try {
       const res = await loginApi({
         email: data.email,
-        password: data.password
+        password: data.password,
+        client: "web"
       });
 
       toast.success("Login successful!");
@@ -100,7 +102,7 @@ const Login: React.FC = () => {
           'expired-callback': () => {
             console.log("reCAPTCHA expired, please try again");
           },
-          'error-callback': (error: any) => {
+          'error-callback': (error: unknown) => {
             console.error("reCAPTCHA error:", error);
           }
         });
@@ -133,18 +135,23 @@ const Login: React.FC = () => {
       setConfirmationResult(confirmResult);
       setIsOtpSent(true);
       toast.success("OTP sent successfully!");
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Error sending OTP:", err);
 
       // Provide more specific error messages
-      if (err.code === 'auth/invalid-app-credential') {
-        toast.error("Firebase configuration error. Please check authorized domains in Firebase Console.");
-      } else if (err.code === 'auth/too-many-requests') {
-        toast.error("Too many requests. Please try again later.");
-      } else if (err.code === 'auth/invalid-phone-number') {
-        toast.error("Invalid phone number format.");
+      if (typeof err === "object" && err !== null && "code" in err) {
+        const errorWithCode = err as { code?: string; message?: string };
+        if (errorWithCode.code === 'auth/invalid-app-credential') {
+          toast.error("Firebase configuration error. Please check authorized domains in Firebase Console.");
+        } else if (errorWithCode.code === 'auth/too-many-requests') {
+          toast.error("Too many requests. Please try again later.");
+        } else if (errorWithCode.code === 'auth/invalid-phone-number') {
+          toast.error("Invalid phone number format.");
+        } else {
+          toast.error(errorWithCode.message || "Failed to send OTP");
+        }
       } else {
-        toast.error(err.message || "Failed to send OTP");
+        toast.error("Failed to send OTP");
       }
     } finally {
       setIsLoading(false);

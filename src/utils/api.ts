@@ -10,16 +10,6 @@ const api = axios.create({
 // Create a function to get the latest token
 const getToken = () => localStorage.getItem("token") || sessionStorage.getItem("token");
 
-// Function to decode JWT token and get uid
-const getUidFromToken = (token: string): string | null => {
-  try {
-    const payload = JSON.parse(atob(token.split('.')[1]));
-    return payload.uid || null;
-  } catch {
-    return null;
-  }
-};
-
 // Simplified token refresh - just get a new access token
 export const refreshAccessToken = async (): Promise<string | null> => {
   // Prevent multiple simultaneous refresh attempts
@@ -56,8 +46,9 @@ export const refreshAccessToken = async (): Promise<string | null> => {
     } else {
       throw new Error('Invalid refresh response');
     }
-  } catch (error: any) {
-    console.log('Token refresh failed:', error.response?.status);
+  } catch (error) {
+    const axiosError = error as { response?: { status?: number } };
+    console.log('Token refresh failed:', axiosError.response?.status);
 
     // If refresh fails, user needs to login again
     localStorage.removeItem("token");
