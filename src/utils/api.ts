@@ -287,3 +287,16 @@ export const getHeroBannerApi = (city: string) => {
 export const initializeCollectionsApi = () => {
   return authApi.post('/customize/initialize-collections');
 };
+
+// Visit APIs
+export const getVisitsApi = (filters?: { search?: string; startDate?: string; endDate?: string }) => {
+  return authApi.get("/visits", { params: filters });
+};
+
+export const deleteVisitApi = (visitId: string) => {
+  return authApi.delete(`/visits/${visitId}`);
+};
+
+export const sendVisitConfirmationApi = (visitId: string) => {
+  return authApi.post(`/visits/${visitId}/send-confirmation`);
+};
