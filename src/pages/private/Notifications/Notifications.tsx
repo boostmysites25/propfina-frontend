@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   sendNotificationApi,
@@ -11,6 +11,36 @@ import { handleApiError } from "../../../utils/errorHandler";
 import toast from "react-hot-toast";
 
 type TabType = 'push' | 'email';
+
+type NotificationType = {
+  id: string;
+  heading?: string;
+  subject?: string;
+  message: string;
+  createdAt?: string | { _seconds: number };
+  type?: string;
+  sentCount?: number;
+  failedCount?: number;
+  createdBy?: string;
+};
+
+interface NotificationsResponse {
+  data: NotificationType[];
+}
+
+interface PushNotificationPayload {
+  heading: string;
+  message: string;
+}
+
+interface EmailNotificationPayload {
+  subject: string;
+  message: string;
+}
+
+interface TestEmailPayload {
+  email: string;
+}
 
 const Notifications: React.FC = () => {
   const [activeTab, setActiveTab] = useState<TabType>('push');
@@ -27,7 +57,7 @@ const Notifications: React.FC = () => {
   const queryClient = useQueryClient();
 
   // Fetch notifications from backend
-  const { data: notificationsData, isLoading, error } = useQuery({
+  const { data: notificationsData, isLoading, error } = useQuery<NotificationsResponse, unknown>({
     queryKey: ['notifications'],
     queryFn: async () => {
       const response = await getAllNotificationsApi();
@@ -36,7 +66,7 @@ const Notifications: React.FC = () => {
   });
 
   // Send push notification mutation
-  const sendPushMutation = useMutation({
+  const sendPushMutation = useMutation<{ data?: unknown }, unknown, PushNotificationPayload>({
     mutationFn: sendNotificationApi,
     onSuccess: () => {
       toast.success("Push notification sent successfully!");
@@ -44,13 +74,13 @@ const Notifications: React.FC = () => {
       setNotificationMessage("");
       queryClient.invalidateQueries({ queryKey: ['notifications'] });
     },
-    onError: (error) => {
+    onError: (error: unknown) => {
       handleApiError(error, "Failed to send push notification");
     },
   });
 
   // Send email notification mutation
-  const sendEmailMutation = useMutation({
+  const sendEmailMutation = useMutation<{ data: { details?: { sentCount?: number; failedCount?: number } } }, unknown, EmailNotificationPayload>({
     mutationFn: sendEmailNotificationApi,
     onSuccess: (response) => {
       const details = response.data.details;
@@ -59,31 +89,33 @@ const Notifications: React.FC = () => {
       setEmailMessage("");
       queryClient.invalidateQueries({ queryKey: ['notifications'] });
     },
-    onError: (error) => {
+    onError: (error: unknown) => {
       handleApiError(error, "Failed to send email notifications");
     },
   });
 
   // Test email mutation
-  const testEmailMutation = useMutation({
-    mutationFn: testEmailApi,
+  const testEmailMutation = useMutation<void, unknown, TestEmailPayload>({
+    mutationFn: async (data: TestEmailPayload) => {
+      await testEmailApi(data);
+    },
     onSuccess: () => {
       toast.success("Test email sent successfully!");
       setTestEmail("");
     },
-    onError: (error) => {
+    onError: (error: unknown) => {
       handleApiError(error, "Failed to send test email");
     },
   });
 
   // Delete notification mutation
-  const deleteMutation = useMutation({
+  const deleteMutation = useMutation<unknown, unknown, string>({
     mutationFn: deleteNotificationApi,
     onSuccess: () => {
       toast.success("Notification deleted successfully!");
       queryClient.invalidateQueries({ queryKey: ['notifications'] });
     },
-    onError: (error) => {
+    onError: (error: unknown) => {
       handleApiError(error, "Failed to delete notification");
     },
   });
@@ -125,7 +157,7 @@ const Notifications: React.FC = () => {
   };
 
   // Get notifications from backend response
-  const sentNotifications = notificationsData?.data || [];
+  const sentNotifications: NotificationType[] = notificationsData?.data || [];
 
   // Show loading state
   if (isLoading) {
@@ -387,10 +419,14 @@ const Notifications: React.FC = () => {
                     <span>
                       {(() => {
                         try {
-                          if (notification.createdAt?._seconds) {
-                            return new Date(notification.createdAt._seconds * 1000).toLocaleString();
+                          if (
+                            notification.createdAt &&
+                            typeof notification.createdAt === "object" &&
+                            "_seconds" in notification.createdAt
+                          ) {
+                            return new Date((notification.createdAt as { _seconds: number })._seconds * 1000).toLocaleString();
                           }
-                          return new Date(notification.createdAt).toLocaleString();
+                          return new Date(notification.createdAt as string).toLocaleString();
                         } catch {
                           return 'Invalid Date';
                         }
@@ -404,7 +440,7 @@ const Notifications: React.FC = () => {
                         </span>
                       </>
                     )}
-                    {notification.failedCount > 0 && (
+                    {notification.failedCount && notification.failedCount > 0 && (
                       <>
                         <span>•</span>
                         <span className="text-red-600">

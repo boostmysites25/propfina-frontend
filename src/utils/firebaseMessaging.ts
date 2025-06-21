@@ -1,6 +1,5 @@
 import { initializeApp, getApps } from 'firebase/app';
-import { getMessaging, getToken, onMessage } from 'firebase/messaging';
-import toast from 'react-hot-toast';
+import { getMessaging } from 'firebase/messaging';
 
 // Firebase config (reuse from uploadImage.ts)
 const firebaseConfig = {
@@ -12,16 +11,16 @@ const firebaseConfig = {
     appId: import.meta.env.VITE_FIREBASE_APP_ID || "1:32116602272:web:07e1d4dba017f219ef20c5",
 };
 
-// VAPID key for web push
-const VAPID_KEY = import.meta.env.VITE_FIREBASE_VAPID_KEY || "your-vapid-key-here";
 
 // Initialize Firebase app
 const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0];
 
-let messaging: any = null;
+import type { Messaging } from 'firebase/messaging';
+
+let messaging: Messaging | null = null;
 
 // Initialize messaging only in browser environment
-const initializeMessaging = (): any => {
+export const initializeMessaging = (): Messaging | null => {
     if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
         try {
             messaging = getMessaging(app);
@@ -35,7 +34,7 @@ const initializeMessaging = (): any => {
 };
 
 // Register service worker
-const registerServiceWorker = async (): Promise<void> => {
+export const registerServiceWorker = async (): Promise<void> => {
     if ('serviceWorker' in navigator) {
         try {
             const registration = await navigator.serviceWorker.register('/firebase-messaging-sw.js');
@@ -88,6 +87,7 @@ export const setupForegroundMessageListener = () => {
 };
 
 export const storeDeviceToken = async (token: string): Promise<boolean> => {
+    console.log(token)
     console.log('Device token storage will be implemented later');
     return false;
 }; 

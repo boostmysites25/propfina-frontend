@@ -27,7 +27,7 @@ interface ConfirmationResult {
 const Login: React.FC = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const [loginMethod, setLoginMethod] = useState<'email' | 'phone'>('email');
+  const [loginMethod, ] = useState<'email' | 'phone'>('email');
   const [isOtpSent, setIsOtpSent] = useState(false);
   const [confirmationResult, setConfirmationResult] = useState<ConfirmationResult | null>(null);
   const [recaptchaVerifier, setRecaptchaVerifier] = useState<RecaptchaVerifier | null>(null);

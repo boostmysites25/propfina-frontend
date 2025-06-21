@@ -1,10 +1,11 @@
 import React from 'react';
 import PhoneInputWithCountry from 'react-phone-input-2';
+import type { CountryData } from 'react-phone-input-2';
 import 'react-phone-input-2/lib/style.css';
 
 interface PhoneInputProps {
     value: string;
-    onChange: (value: string, country?: any) => void;
+    onChange: (value: string, country?: CountryData) => void;
     placeholder?: string;
     disabled?: boolean;
     error?: string;
@@ -33,7 +34,21 @@ const PhoneInput: React.FC<PhoneInputProps> = ({
             <PhoneInputWithCountry
                 country={'us'}
                 value={value}
-                onChange={(phone, country) => onChange(phone, country)}
+                onChange={(phone, country) => {
+                    // Check if country has required CountryData properties
+                    if (
+                        country &&
+                        typeof country === 'object' &&
+                        'name' in country &&
+                        'dialCode' in country &&
+                        'countryCode' in country &&
+                        'format' in country
+                    ) {
+                        onChange(phone, country as CountryData);
+                    } else {
+                        onChange(phone, undefined);
+                    }
+                }}
                 placeholder={placeholder}
                 disabled={disabled}
                 inputStyle={{
